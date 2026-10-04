@@ -159,6 +159,16 @@
 
 (load-theme 'retro-orange t)
 
+;; Make the selected window's mode line stand out from inactive windows.
+(set-face-attribute 'mode-line nil
+                    :foreground "#000000"
+                    :background "#F66E25"
+                    :inverse-video nil)
+(set-face-attribute 'mode-line-inactive nil
+                    :foreground "#F66E25"
+                    :background "#000000"
+                    :inverse-video nil)
+
 ;; [TEMPORARY]
 ;; Show command and other completion candidates beside the minibuffer input,
 ;; which sits below the fixed window layout, instead of in the distant main area.
