@@ -1,0 +1,15 @@
+/result
+/.direnv/
+/.env
+/.env.*
+/secrets/
+/config/pi/auth.json
+/config/herdr/session.json
+/config/herdr/session-snapshots/
+/herdr/.plugins.lock
+/herdr/*.log
+/herdr/*.sock
+/herdr/session.json
+/herdr/session-snapshots/
+*~
+*.elc

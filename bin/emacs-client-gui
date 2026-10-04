@@ -1,0 +1,14 @@
+#!/bin/sh
+# Use the Home Manager managed client and report connection failure.
+mode=--reuse-frame
+if [ "${1-}" = --create-frame ]; then
+    mode=--create-frame
+    shift
+fi
+"$HOME/.local/bin/emacsclient" "$mode" --no-wait "$@"
+status=$?
+if [ "$status" -ne 0 ]; then
+    /usr/bin/notify-send -u critical 'Emacs daemon に接続できません' \
+        'systemctl --user status emacs.service を確認してください' || :
+fi
+exit "$status"
