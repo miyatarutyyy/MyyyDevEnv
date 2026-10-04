@@ -27,6 +27,9 @@
 ;; installation and configuration stay together in this file.
 (require 'use-package)
 
+;; Keep visited files in sync when they change on disk outside Emacs.
+(global-auto-revert-mode 1)
+
 ;; =========================================================
 ;;  UI: Ghostel and Herdr
 ;; =========================================================
