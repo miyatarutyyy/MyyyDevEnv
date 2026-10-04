@@ -10,6 +10,9 @@
   home.file = {
     ".emacs.d/early-init.el".source = ../emacs/early-init.el;
     ".emacs.d/init.el".source = ../emacs/init.el;
+    # Temporary AGENTS.md annotation experiment; remove with its init.el block.
+    ".emacs.d/agents-annotation.el".source =
+      ../experiments/agents-annotation/overlay/agents-annotation.el;
     ".emacs.d/themes".source = ../emacs/themes;
     # straight-freeze-versions writes here, so point at the editable source.
     ".emacs.d/straight/versions".source = config.lib.file.mkOutOfStoreSymlink

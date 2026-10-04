@@ -1,0 +1,36 @@
+#+title: AGENTS.md — annotated view (org-transclusion PoC)
+#+startup: overview
+
+This is a separate human-facing view. The source remains =../AGENTS.md=.
+
+* Testing
+
+#+transclude: [[file:../AGENTS.md::## Testing]] :lines 1- :end "## Architecture"
+
+** Memo
+
+Keep the test instruction close to the workflow for this repository.
+
+** Question
+
+Should the generated-file rule identify the generated output directories?
+
+* Architecture
+
+#+transclude: [[file:../AGENTS.md::## Architecture]] :lines 1- :end "## Git"
+
+** Memo
+
+This rule prevents HTTP handlers from accumulating domain behavior.
+
+** Request
+
+Please spell out the service-layer separation more concretely.
+
+* Git
+
+#+transclude: [[file:../AGENTS.md::## Git]] :lines 1-
+
+** Memo
+
+Small commits make review and rollback easier.

@@ -45,6 +45,14 @@
 (use-package ghostel
   :straight t)
 
+;; Temporary annotation experiment; remove this block and its experiment folder
+;; to uninstall its commands.  The package uses the existing straight.el setup.
+(use-package org-transclusion
+  :straight t
+  :commands (org-transclusion-mode org-transclusion-add-all))
+(load (expand-file-name "agents-annotation.el" user-emacs-directory)
+      nil 'nomessage)
+
 ;; =========================================================
 ;;  Non-UI: Editing and language tools
 ;; =========================================================
