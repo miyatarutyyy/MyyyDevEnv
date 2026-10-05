@@ -27,6 +27,10 @@
 ;; installation and configuration stay together in this file.
 (require 'use-package)
 
+;; Display and edit per-file appendix notes without changing source buffers.
+(load (expand-file-name "appendix-overlay.el" user-emacs-directory)
+      nil 'nomessage)
+
 ;; Keep visited files in sync when they change on disk outside Emacs.
 (global-auto-revert-mode 1)
 
