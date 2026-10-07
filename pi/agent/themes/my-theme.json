@@ -1,0 +1,109 @@
+{
+    "$schema": "https://raw.githubusercontent.com/earendil-works/pi/main/packages/coding-agent/src/modes/interactive/theme/theme-schema.json",
+    "name": "f66e25",
+    "appearance": "dark",
+
+    "vars": {
+        "text": "okhsl(45 4% 90%)",
+        "muted": "okhsl(40 6% 66%)",
+
+        "orange": "okhsl(44.35 94.7% 64.46%)",
+        "orangeSoft": "okhsl(44 70% 66%)",
+        "orangeDim": "okhsl(44 55% 52%)",
+        "orangeBg": "okhsl(44 45% 19%)",
+
+        "blue": "okhsl(235 60% 68%)",
+        "cyan": "okhsl(200 58% 68%)",
+        "cyanSoft": "okhsl(195 70% 70%)",
+        "cyanDim": "okhsl(200 45% 52%)",
+        "cyanBg": "okhsl(200 45% 19%)",
+        "green": "okhsl(155 60% 66%)",
+        "deepGreen": "okhsl(155 55% 48%)",
+        "red": "okhsl(20 76% 65%)",
+        "yellow": "okhsl(85 85% 70%)",
+
+        "surface": "okhsl(40 5% 13%)",
+        "surfaceRaised": "okhsl(40 6% 17%)",
+        "surfaceMuted": "okhsl(40 5% 22%)"
+    },
+
+    "colors": {
+        "accent": "cyan",
+
+        "border": "okhsl(40 10% 40%)",
+        "borderAccent": "cyan",
+        "borderMuted": "okhsl(40 6% 34%)",
+
+        "success": "green",
+        "error": "red",
+        "warning": "yellow",
+
+        "muted": "muted",
+        "dim": "okhsl(40 6% 52%)",
+        "text": "text",
+        "thinkingText": "okhsl(40 8% 68%)",
+
+        "selectedBg": "cyanBg",
+
+        "scrollbarTrack": "surfaceMuted",
+        "scrollbarThumb": "cyanDim",
+
+        "searchMatchBg": "okhsl(44 55% 25%)",
+        "searchMatchText": "text",
+
+        "userMessageBg": "okhsl(44 32% 18%)",
+        "userMessageText": "orange",
+
+        "customMessageBg": "cyanBg",
+        "customMessageText": "text",
+        "customMessageLabel": "cyan",
+
+        "toolPendingBg": "surfaceRaised",
+        "toolSuccessBg": "okhsl(155 35% 20%)",
+        "toolErrorBg": "okhsl(20 42% 20%)",
+
+        "toolTitle": "deepGreen",
+        "toolOutput": "muted",
+
+        "mdHeading": "orange",
+        "mdLink": "cyan",
+        "mdLinkUrl": "muted",
+        "mdCode": "orangeSoft",
+        "mdCodeBlock": "green",
+        "mdCodeBlockBorder": "cyanDim",
+        "mdQuote": "muted",
+        "mdQuoteBorder": "orangeDim",
+        "mdHr": "okhsl(40 7% 40%)",
+        "mdListBullet": "cyan",
+
+        "toolDiffAdded": "green",
+        "toolDiffRemoved": "red",
+        "toolDiffContext": "muted",
+
+        "syntaxComment": "okhsl(40 5% 53%)",
+        "syntaxKeyword": "orange",
+        "syntaxFunction": "yellow",
+        "syntaxVariable": "cyan",
+        "syntaxString": "green",
+        "syntaxNumber": "orangeSoft",
+        "syntaxType": "cyanSoft",
+        "syntaxOperator": "cyan",
+        "syntaxPunctuation": "muted",
+
+        "thinkingOff": "okhsl(40 5% 42%)",
+        "thinkingMinimal": "okhsl(195 20% 48%)",
+        "thinkingLow": "okhsl(195 40% 53%)",
+        "thinkingMedium": "okhsl(195 62% 58%)",
+        "thinkingHigh": "okhsl(195 82% 63%)",
+        "thinkingXhigh": "cyanSoft",
+        "thinkingMax": "cyan",
+
+        "bashMode": "green"
+    },
+
+    "export": {
+        "pageBg": "okhsl(40 5% 10%)",
+        "cardBg": "surface",
+        "infoBg": "orangeBg"
+    }
+}

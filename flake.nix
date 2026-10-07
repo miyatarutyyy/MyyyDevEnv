@@ -7,8 +7,9 @@
     url = "github:nix-community/home-manager";
     inputs.nixpkgs.follows = "nixpkgs";
   };
+  inputs.herdr-upstream.url = "github:herdrdev/herdr/v0.9.3";
 
-  outputs = { pi, nixpkgs, home-manager, ... }:
+  outputs = { pi, nixpkgs, home-manager, herdr-upstream, ... }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
@@ -23,14 +24,9 @@
         latexmk
       ]);
       piPackage = pi.packages.${system}.default;
-      herdrSource = pkgs.fetchurl {
-        url = "https://github.com/herdrdev/herdr/releases/download/v0.9.3/herdr-linux-x86_64";
-        hash = "sha256-GKjcZfHC+khYhDRDVt6hz9kRxvBs9G+njhk/QIf026c=";
-      };
-      herdrPackage = pkgs.runCommand "herdr-0.9.3" { } ''
-        mkdir -p "$out/bin"
-        install -m755 ${herdrSource} "$out/bin/herdr"
-      '';
+      herdrPackage = herdr-upstream.packages.${system}.default.overrideAttrs (old: {
+        patches = (old.patches or [ ]) ++ [ ./patches/herdr-sidebar-gutter.patch ];
+      });
       languageServers = pkgs.buildEnv {
         name = "editor-language-servers";
         paths = with pkgs; [

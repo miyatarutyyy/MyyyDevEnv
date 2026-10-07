@@ -1,0 +1,28 @@
+#+title: AGENTS.md annotations (overlay PoC)
+
+* Architecture rationale
+:PROPERTIES:
+:SOURCE_FILE: ../AGENTS.md
+:ANCHOR: ## Architecture
+:TYPE: note
+:END:
+
+This rule prevents HTTP handlers from accumulating domain behavior.
+
+* Architecture request
+:PROPERTIES:
+:SOURCE_FILE: ../AGENTS.md
+:ANCHOR: ## Architecture
+:TYPE: request
+:END:
+
+Please make the service layer separation more explicit.
+
+* Git question
+:PROPERTIES:
+:SOURCE_FILE: ../AGENTS.md
+:ANCHOR: ## Git
+:TYPE: question
+:END:
+
+Should this rule mention commit message format too?

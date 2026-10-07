@@ -1,0 +1,88 @@
+diff --git a/src/client/shell/config.rs b/src/client/shell/config.rs
+index bfa1fb2..0b838ef 100644
+--- a/src/client/shell/config.rs
++++ b/src/client/shell/config.rs
+@@ -377,7 +377,7 @@ impl ClientShellConfig {
+ 
+         let sidebar_width = if sidebar_collapsed {
+             match self.sidebar_collapsed_mode {
+-                SidebarCollapsedModeConfig::Compact => 4,
++                SidebarCollapsedModeConfig::Compact => 5,
+                 SidebarCollapsedModeConfig::Hidden => 0,
+             }
+         } else {
+@@ -389,7 +389,10 @@ impl ClientShellConfig {
+             sidebar_width.clamp(min, max)
+         }
+         .min(cols.saturating_sub(1));
+-        let main = Rect::new(sidebar_width, 0, cols.saturating_sub(sidebar_width), rows);
++        // Leave one plain cell on the pane side of the sidebar separator.
++        let gutter = u16::from(sidebar_width > 0 && cols.saturating_sub(sidebar_width) > 1);
++        let main_x = sidebar_width + gutter;
++        let main = Rect::new(main_x, 0, cols.saturating_sub(main_x), rows);
+         let show_tab_bar = rows > 1 && !(self.hide_tab_bar_when_single_tab && tab_count == 1);
+         let tab_height = u16::from(show_tab_bar);
+         let (tab_bar, pane_surface) = match self.tab_bar_position {
+diff --git a/src/client/shell/endpoint_sidebar.rs b/src/client/shell/endpoint_sidebar.rs
+index 9698248..a10dcf1 100644
+--- a/src/client/shell/endpoint_sidebar.rs
++++ b/src/client/shell/endpoint_sidebar.rs
+@@ -564,9 +564,9 @@ pub(super) fn render_expanded(
+         hits,
+     );
+     hits.sidebar_toggle = Rect::new(
+-        area.right().saturating_sub(2),
++        area.right().saturating_sub(3),
+         area.bottom().saturating_sub(1),
+-        u16::from(area.width > 1),
++        u16::from(area.width > 2),
+         u16::from(area.height > 0),
+     );
+     put_text(
+diff --git a/src/client/shell/sidebar.rs b/src/client/shell/sidebar.rs
+index f94f6bd..ea4d7ce 100644
+--- a/src/client/shell/sidebar.rs
++++ b/src/client/shell/sidebar.rs
+@@ -27,7 +27,7 @@ pub(in crate::client::shell) fn workspace_active_background(
+ pub(in crate::client::shell) fn collapsed_sidebar_sections(
+     area: Rect,
+ ) -> (Rect, Option<u16>, Rect) {
+-    let content = Rect::new(area.x, area.y, area.width.saturating_sub(1), area.height);
++    let content = Rect::new(area.x, area.y, area.width.saturating_sub(2), area.height);
+     if content.is_empty() {
+         return (Rect::default(), None, Rect::default());
+     }
+@@ -440,9 +440,9 @@ pub(crate) fn render_sidebar(
+     );
+ 
+     hits.sidebar_toggle = Rect::new(
+-        area.right().saturating_sub(2),
++        area.right().saturating_sub(3),
+         area.bottom().saturating_sub(1),
+-        u16::from(area.width > 1),
++        u16::from(area.width > 2),
+         u16::from(area.height > 0),
+     );
+     put_text(
+diff --git a/src/ui/sidebar.rs b/src/ui/sidebar.rs
+index cbf6f1a..6400533 100644
+--- a/src/ui/sidebar.rs
++++ b/src/ui/sidebar.rs
+@@ -48,7 +48,7 @@ fn sidebar_section_heights(total_height: u16, split_ratio: f32) -> (u16, u16) {
+ }
+ 
+ pub(crate) fn expanded_sidebar_sections(area: Rect, split_ratio: f32) -> (Rect, Rect) {
+-    let content = Rect::new(area.x, area.y, area.width.saturating_sub(1), area.height);
++    let content = Rect::new(area.x, area.y, area.width.saturating_sub(2), area.height);
+     if content.is_empty() {
+         return (Rect::default(), Rect::default());
+     }
+@@ -66,7 +66,7 @@ pub(crate) fn expanded_sidebar_sections(area: Rect, split_ratio: f32) -> (Rect,
+ }
+ 
+ pub(crate) fn sidebar_section_divider_rect(area: Rect, split_ratio: f32) -> Rect {
+-    let content = Rect::new(area.x, area.y, area.width.saturating_sub(1), area.height);
++    let content = Rect::new(area.x, area.y, area.width.saturating_sub(2), area.height);
+     if content.width == 0 || content.height < 6 {
+         return Rect::default();
+     }
