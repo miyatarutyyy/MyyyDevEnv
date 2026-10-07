@@ -1,0 +1,36 @@
+onboarding = false
+
+[ui.toast]
+delivery = "off"
+
+[ui]
+status_indicators = "dots"
+accent = "#F66E25"
+
+[ui.sidebar.spaces]
+rows = [
+  ["state_icon", { token = "workspace", fg = "#F66E25", dim = false }],
+  [{ token = "branch", fg = "#F66E25", dim = false }, { token = "git_status", fg = "#F66E25", dim = false }]
+]
+
+[ui.sidebar.agents]
+rows = [
+  ["state_icon", { token = "machine", fg = "#F66E25", dim = false }, { token = "workspace", fg = "#F66E25", dim = false }, { token = "tab", fg = "#F66E25", dim = false }],
+  [{ token = "agent", fg = "#F66E25", dim = false }]
+]
+
+[ui.sound]
+path = "sounds/request.mp3"
+done_path = "sounds/done.mp3"
+request_path = "sounds/request.mp3"
+
+[theme]
+name = "terminal"
+auto_switch = false
+
+[theme.custom]
+selection_bg = "#401600"
+active_row_bg = "#401600"
+accent = "#F66E25"
+red = "#F66E25"
+surface_dim = "#F66E25"
