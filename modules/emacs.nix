@@ -10,8 +10,7 @@
   home.file = {
     ".emacs.d/early-init.el".source = ../emacs/early-init.el;
     ".emacs.d/init.el".source = ../emacs/init.el;
-    ".emacs.d/appendix-overlay.el".source =
-      ../experiments/agents-annotation/overlay/appendix-overlay.el;
+    ".emacs.d/appendix-overlay.el".source = ../emacs/appendix-overlay.el;
     ".emacs.d/themes".source = ../emacs/themes;
     # straight-freeze-versions writes here, so point at the editable source.
     ".emacs.d/straight/versions".source = config.lib.file.mkOutOfStoreSymlink
