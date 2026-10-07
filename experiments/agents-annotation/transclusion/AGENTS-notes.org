@@ -5,7 +5,7 @@ This is a separate human-facing view. The source remains =../AGENTS.md=.
 
 * Testing
 
-#+transclude: [[file:../AGENTS.md::## Testing]] :lines 1- :end "## Architecture"
+#+transclude: [[file:../AGENTS.md]] :lines 3-6
 
 ** Memo
 
@@ -17,7 +17,7 @@ Should the generated-file rule identify the generated output directories?
 
 * Architecture
 
-#+transclude: [[file:../AGENTS.md::## Architecture]] :lines 1- :end "## Git"
+#+transclude: [[file:../AGENTS.md]] :lines 8-10
 
 ** Memo
 
@@ -29,7 +29,7 @@ Please spell out the service-layer separation more concretely.
 
 * Git
 
-#+transclude: [[file:../AGENTS.md::## Git]] :lines 1-
+#+transclude: [[file:../AGENTS.md]] :lines 12-14
 
 ** Memo
 

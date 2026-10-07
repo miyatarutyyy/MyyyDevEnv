@@ -50,7 +50,7 @@
 (use-package org-transclusion
   :straight t
   :commands (org-transclusion-mode org-transclusion-add-all))
-(load (expand-file-name "agents-annotation.el" user-emacs-directory)
+(load (expand-file-name "appendix-overlay.el" user-emacs-directory)
       nil 'nomessage)
 
 ;; =========================================================
@@ -191,7 +191,10 @@
                (when (buffer-live-p buffer)
                  (with-current-buffer buffer
                    (when (derived-mode-p 'ghostel-mode)
-                     (ghostel-send-string "herdr\n")))))
+                     (ghostel-send-string
+                      (concat (shell-quote-argument
+                               (expand-file-name "~/.local/bin/herdr"))
+                              "\n"))))))
              ghostel-buffer))
           (select-window main-window)
           (delete-other-windows main-window)

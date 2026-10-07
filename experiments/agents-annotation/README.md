@@ -2,6 +2,8 @@
 
 This directory is disposable. `AGENTS.md` is the shared canonical sample; the two approaches keep their human notes beside their own PoC files.
 
+実際に両方式を試す手順は [`TUTORIAL.md`](TUTORIAL.md) を参照してください。特に overlay 方式は、サンプルの `AGENTS.md` を開いてから注釈を表示します。別の `AGENTS.md` や注釈ファイルを開いた状態では、対応する注釈がないため表示されません。
+
 ## Start
 
 Open `AGENTS.md` in Emacs and try the overlay commands:
@@ -27,10 +29,8 @@ Close buffers visiting this directory, then delete `experiments/agents-annotatio
 | 元ファイルを見ながら注釈できるか | できる。本文の横に一時 overlay を表示 | 別の Org view 内で元の節を展開 |
 | 元ファイルを汚さないか | はい。Org sidecar のみ更新 | はい。リンクを含む Org view とメモのみ |
 | 注釈の編集しやすさ | コマンドで追加し、Org sidecar を直接編集 | 見出しごとのノートを自由に Org 編集 |
-| anchor の安定性 | 行テキスト一致。編集に強くはなく、重複行は非表示 | Markdown 見出し文字列と開始/終了見出しで範囲指定。見出し変更には追従しない |
-| AI Agent に export しやすいか | request だけをテキスト化し kill-ring へコピー | Org view から手動で抜き出す。専用 export なし |
-| 実装の複雑さ | 小さな自作 Elisp と再描画ロジック | パッケージ設定は小さいが、リンク/範囲記法を理解する必要 |
-| maintenance cost | anchor 再解決と表示コードを保守 | パッケージ互換性と Markdown 範囲リンクを保守 |
+| anchor の安定性 | 行テキスト一致。重複行は表示しない | Markdown の行番号範囲で指定。行変更時は更新が必要 |
+| AI Agent に渡しやすいか | request だけをテキスト化し kill-ring へコピー | Org view から手動で抜き出す。専用 export なし |
 | Org との親和性 | 保存形式と編集は Org、表示は overlay | 高い。ノート、見出し、リンクが Org view に集約 |
 
 ## Known limits
@@ -38,5 +38,5 @@ Close buffers visiting this directory, then delete `experiments/agents-annotatio
 - This is a single-sample proof of concept; the overlay sidecar path is deliberately local to this experiment.
 - A changed or duplicate overlay anchor is not guessed. Re-anchor that entry in `overlay/annotations.org`.
 - The transclusion package operates on text files using search strings and dynamic end markers. It does not provide semantic Markdown heading IDs; renaming or reordering sections may need link adjustment.
-- The test of org-transclusion's exact Markdown extraction behavior depends on the installed package version. The `:lines` range is bounded by the next heading's text where applicable, rather than a stored line number.
+- The transclusion sample uses explicit Markdown line ranges because `:lines` is the package's supported mechanism for selecting ranges in non-Org text files. Update those ranges when the sample's lines change.
 - Overlay notes are only presentation; they never become part of the source buffer's saved text.
