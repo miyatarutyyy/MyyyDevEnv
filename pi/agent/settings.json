@@ -1,0 +1,20 @@
+{
+  "defaultProvider": "openai",
+  "defaultModel": "gpt-6-luna",
+  "defaultThinkingLevel": "high",
+  "hideThinkingBlock": false,
+  "steeringMode": "one-at-a-time",
+  "followUpMode": "one-at-a-time",
+  "defaultProjectTrust": "ask",
+  "cacheWarming": "streaming",
+  "compaction": {
+    "enabled": false
+  },
+  "lastChangelogVersion": "1.0.0",
+  "images": {
+    "blockImages": true
+  },
+  "editorPaddingX": 1,
+  "tuiMode": "fullscreen",
+  "theme": "my-theme"
+}

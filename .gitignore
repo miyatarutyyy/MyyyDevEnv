@@ -4,6 +4,8 @@
 /.env.*
 /secrets/
 /config/pi/auth.json
+/pi/agent/auth.json
+/pi/agent/sessions
 /config/herdr/session.json
 /config/herdr/session-snapshots/
 /herdr/.plugins.lock
