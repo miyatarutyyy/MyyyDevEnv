@@ -6,6 +6,9 @@
   # First Home Manager version used for this home configuration. Keep fixed.
   home.stateVersion = "26.05";
   programs.home-manager.enable = true;
+
+  home.file.".pi/agent/keybindings.json".source = ./pi/agent/keybindings.json;
+
   xdg.configFile."nix/nix.conf".text = ''
     experimental-features = nix-command flakes
   '';
