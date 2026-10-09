@@ -30,6 +30,8 @@
 ;; Display and edit per-file appendix notes without changing source buffers.
 (load (expand-file-name "appendix-overlay.el" user-emacs-directory)
       nil 'nomessage)
+(load (expand-file-name "memorandum.el" user-emacs-directory)
+      nil 'nomessage)
 
 ;; Keep visited files in sync when they change on disk outside Emacs.
 (global-auto-revert-mode 1)
@@ -188,6 +190,8 @@
         (let* ((main-window (window-main-window frame))
                (main-buffer (get-buffer-create "*Main*"))
                (ghostel-buffer (get-buffer "*AI Agent*")))
+          (set-window-parameter main-window 'memorandum-main-window t)
+          (setq memorandum-main-window main-window)
           ;; Start an interactive Ghostel shell, then send Herdr through its
           ;; terminal after the shell has had time to initialize.
           (unless (and ghostel-buffer
