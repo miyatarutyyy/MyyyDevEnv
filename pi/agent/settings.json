@@ -12,9 +12,12 @@
   },
   "lastChangelogVersion": "1.0.0",
   "images": {
-    "blockImages": true
+    "blockImages": false
   },
   "editorPaddingX": 1,
   "tuiMode": "fullscreen",
-  "theme": "my-theme"
+  "theme": "my-theme",
+  "terminal": {
+    "showTerminalProgress": false
+  }
 }

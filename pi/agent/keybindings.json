@@ -1,6 +1,10 @@
 {
   "tui.input.submit": "ctrl+enter",
   "tui.input.newLine": "shift+enter",
+  "tui.editor.cursorLineStart": ["home", "ctrl+a"],
+  "tui.editor.cursorLineEnd": ["end", "ctrl+e"],
+  "tui.altScreen.top": [],
+  "tui.altScreen.bottom": [],
 
   "tui.input.copy": [],
   "tui.editor.undo": [],

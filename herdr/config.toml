@@ -32,5 +32,5 @@ auto_switch = false
 selection_bg = "#401600"
 active_row_bg = "#401600"
 accent = "#F66E25"
-red = "#F66E25"
+red = "#000000"
 surface_dim = "#F66E25"
