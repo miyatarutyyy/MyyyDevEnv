@@ -14,7 +14,7 @@
     ".emacs.d/themes".source = ../emacs/themes;
     # straight-freeze-versions writes here, so point at the editable source.
     ".emacs.d/straight/versions".source = config.lib.file.mkOutOfStoreSymlink
-      "${config.home.homeDirectory}/environment/emacs/straight/versions";
+      "${config.home.homeDirectory}/MyyyDevEnv/environment-master/emacs/straight/versions";
     ".local/bin/emacs".source = "${editorPackages.emacsLauncher}/bin/emacs-pinned";
     ".local/bin/emacsclient".source = "${editorPackages.emacsclientLauncher}/bin/emacsclient-pinned";
     ".local/bin/emacs-client-gui".source = ../bin/emacs-client-gui;
