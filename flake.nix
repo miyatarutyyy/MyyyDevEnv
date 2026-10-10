@@ -15,6 +15,7 @@
       pkgs = import nixpkgs { inherit system; };
       emacs = (pkgs.emacsPackagesFor pkgs.emacs-pgtk).emacsWithPackages (epkgs: [
         epkgs.nix-mode
+        epkgs.ddskk
       ]);
       # Org PDF export uses LuaLaTeX, with Japanese support available for Org documents.
       texlive = pkgs.texliveSmall.withPackages (ps: with ps; [
@@ -82,6 +83,10 @@
       emacsLauncher = pkgs.writeShellScriptBin "emacs-pinned" ''
         ${checkStraightLock}
         unset EMACSLOADPATH
+        # Use Emacs's own input method (DDSKK), not the desktop's fcitx5.
+        export GTK_IM_MODULE=none
+        unset XMODIFIERS
+        export DDSKK_LARGE_JISYO=${pkgs.skkDictionaries.l}/share/skk/SKK-JISYO.L
         export GHOSTEL_MODULE_DIRECTORY=${ghostelModule}
         export EDITOR_TREE_SITTER_GRAMMARS=${grammars}/lib
         export PATH=${pkgs.lib.makeBinPath [ piPackage herdrPackage languageServers texlive pkgs.git pkgs.gh pkgs.direnv ]}:$PATH

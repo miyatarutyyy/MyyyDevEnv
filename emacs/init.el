@@ -27,6 +27,16 @@
 ;; installation and configuration stay together in this file.
 (require 'use-package)
 
+;; Use DDSKK inside Emacs. The launcher disables GTK's external input method
+;; bridge for the Emacs process, leaving fcitx5 available to other applications.
+(require 'skk-version)
+(require 'skk-cus)
+(require 'skk)
+(require 'skk-leim)
+(setq default-input-method "japanese-skk"
+      skk-large-jisyo
+      (or (getenv "DDSKK_LARGE_JISYO") skk-large-jisyo))
+
 ;; Display and edit per-file appendix notes without changing source buffers.
 (load (expand-file-name "appendix-overlay.el" user-emacs-directory)
       nil 'nomessage)
