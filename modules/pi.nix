@@ -6,6 +6,10 @@ let
   piExtensions = pkgs.linkFarm "pi-agent-extensions" [
     { name = "compaction-reminder.ts"; path = ../pi/agent/extensions/compaction-reminder.ts; }
     { name = "herdr-agent-state.ts"; path = ../pi/agent/extensions/herdr-agent-state.ts; }
+    { name = "memorandum.ts"; path = ../pi/agent/extensions/memorandum.ts; }
+    { name = "memorandum/child-research.ts"; path = ../pi/agent/extensions/memorandum/child-research.ts; }
+    { name = "memorandum/core.mjs"; path = ../pi/agent/extensions/memorandum/core.mjs; }
+    { name = "navigator.ts"; path = ../pi/agent/extensions/navigator.ts; }
     { name = "subagent/index.ts"; path = ../pi/agent/extensions/subagent/index.ts; }
     { name = "subagent/agents.ts"; path = ../pi/agent/extensions/subagent/agents.ts; }
     { name = "workspace/index.ts"; path = ../pi/agent/extensions/workspace/index.ts; }

@@ -7,6 +7,7 @@
   home.stateVersion = "26.05";
   programs.home-manager.enable = true;
 
+
   xdg.configFile."nix/nix.conf".text = ''
     experimental-features = nix-command flakes
   '';
