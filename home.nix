@@ -7,8 +7,6 @@
   home.stateVersion = "26.05";
   programs.home-manager.enable = true;
 
-  home.file.".pi/agent/keybindings.json".source = ./pi/agent/keybindings.json;
-
   xdg.configFile."nix/nix.conf".text = ''
     experimental-features = nix-command flakes
   '';
@@ -18,6 +16,7 @@
 
   imports = [
     ./modules/emacs.nix
+    ./modules/pi.nix
     ./modules/tools.nix
     ./modules/texlive.nix
     ./modules/git.nix
