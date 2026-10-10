@@ -19,12 +19,17 @@ in
 {
   # Stable, tracked Pi configuration is managed by Home Manager. Credentials,
   # session history, and the refreshable model catalog remain user-local.
+  # Pi settings are intentionally linked from the Nix store so Pi cannot
+  # silently persist preference changes outside this repository.
   home.file = {
     ".pi/agent/AGENTS.md".source = ../pi/agent/AGENTS.md;
     ".pi/agent/agents".source = ../pi/agent/agents;
     ".pi/agent/extensions".source = piExtensions;
     ".pi/agent/keybindings.json".source = ../pi/agent/keybindings.json;
-    ".pi/agent/settings.json".source = ../pi/agent/settings.json;
+    ".pi/agent/settings.json" = {
+      source = ../pi/agent/settings.json;
+      force = true;
+    };
     ".pi/agent/themes".source = ../pi/agent/themes;
   };
 }
