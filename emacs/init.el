@@ -134,6 +134,17 @@
 ;; =========================================================
 ;;  UI: Frame appearance and window layout
 ;; =========================================================
+;; Use pixel-based scrolling for smooth mouse-wheel and touchpad scrolling.
+;; This is available in Emacs 29 and newer (the pinned PGTK Emacs is recent).
+(when (fboundp 'pixel-scroll-precision-mode)
+  (setq pixel-scroll-precision-interpolate-page t)
+  (pixel-scroll-precision-mode 1))
+
+;; Keep point three lines away from the window edges and scroll only enough
+;; to maintain that margin as point moves up or down.
+(setq scroll-margin 3
+      scroll-conservatively 101)
+
 ;; Allow Emacs frames to resize in pixel increments when the window manager maximizes them.
 (setq frame-resize-pixelwise t)
 
@@ -185,10 +196,49 @@
                     :background "#000000"
                     :inverse-video nil)
 
-;; [TEMPORARY]
-;; Show command and other completion candidates beside the minibuffer input,
-;; which sits below the fixed window layout, instead of in the distant main area.
-(icomplete-vertical-mode 1)
+;; =========================================================
+;;  UI: Completion
+;; =========================================================
+;; Vertico presents minibuffer candidates vertically; Orderless allows
+;; flexible multi-term matching, and Marginalia annotates each candidate.
+(use-package vertico
+  :straight t
+  :init
+  (vertico-mode 1))
+
+(use-package orderless
+  :straight t
+  :init
+  (setq completion-styles '(orderless basic)
+        completion-category-defaults nil
+        ;; Keep path separators useful for file-name completion.
+        completion-category-overrides '((file (styles partial-completion)))))
+
+(use-package marginalia
+  :straight t
+  :init
+  (marginalia-mode 1))
+
+;; Consult provides richer search and buffer-switching commands.
+(use-package consult
+  :straight t
+  :bind (("C-s" . consult-line)
+         ("C-x b" . consult-buffer)))
+
+;; Corfu displays in-buffer completion candidates. Cape adds useful sources
+;; alongside mode- and Eglot-provided completion-at-point functions.
+(use-package corfu
+  :straight t
+  :init
+  (setq corfu-auto t
+        corfu-cycle t)
+  (global-corfu-mode 1))
+
+(use-package cape
+  :straight t
+  :init
+  (add-to-list 'completion-at-point-functions #'cape-dabbrev)
+  (add-to-list 'completion-at-point-functions #'cape-file))
 
 ;; Window Layout:
 (defun tarutyyyne-setup-window-layout (&optional frame)
