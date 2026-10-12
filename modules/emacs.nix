@@ -12,6 +12,7 @@
     ".emacs.d/init.el".source = ../emacs/init.el;
     ".emacs.d/appendix-overlay.el".source = ../emacs/appendix-overlay.el;
     ".emacs.d/memorandum.el".source = ../emacs/memorandum.el;
+    ".emacs.d/workspaces.el".source = ../emacs/workspaces.el;
     ".emacs.d/themes".source = ../emacs/themes;
     # straight-freeze-versions writes here, so point at the editable source.
     ".emacs.d/straight/versions".source = config.lib.file.mkOutOfStoreSymlink

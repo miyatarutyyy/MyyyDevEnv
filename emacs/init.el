@@ -64,6 +64,10 @@
 (use-package ghostel
   :straight t)
 
+;; Give native tabs independent Ghostel clients attached to the shared Herdr session.
+(load (expand-file-name "workspaces.el" user-emacs-directory)
+      nil 'nomessage)
+
 ;; =========================================================
 ;;  Non-UI: Editing and language tools
 ;; =========================================================
@@ -240,52 +244,7 @@
   (add-to-list 'completion-at-point-functions #'cape-dabbrev)
   (add-to-list 'completion-at-point-functions #'cape-file))
 
-;; Window Layout:
-(defun tarutyyyne-setup-window-layout (&optional frame)
-  "Show *Main* on the right and the Herdr terminal on the left in FRAME."
-  (let ((frame (or frame (selected-frame))))
-    (when (and (frame-live-p frame)
-               (not (eq (frame-parameter frame 'minibuffer) 'only)))
-      (with-selected-frame frame
-        (let* ((main-window (window-main-window frame))
-               (main-buffer (get-buffer-create "*Main*"))
-               (ghostel-buffer (get-buffer "*AI Agent*")))
-          (set-window-parameter main-window 'memorandum-main-window t)
-          (setq memorandum-main-window main-window)
-          ;; Start an interactive Ghostel shell, then send Herdr through its
-          ;; terminal after the shell has had time to initialize.
-          (unless (and ghostel-buffer
-                       (with-current-buffer ghostel-buffer
-                         (derived-mode-p 'ghostel-mode)))
-            (setq ghostel-buffer (ghostel-create "*AI Agent*"))
-            (run-at-time
-             1 nil
-             (lambda (buffer)
-               (when (buffer-live-p buffer)
-                 (with-current-buffer buffer
-                   (when (derived-mode-p 'ghostel-mode)
-                     (ghostel-send-string
-                      (concat (shell-quote-argument
-                               (expand-file-name "~/.local/bin/herdr"))
-                              "\n"))))))
-             ghostel-buffer))
-          (select-window main-window)
-          (delete-other-windows main-window)
-          ;; The main window fills the right half; Ghostel is a left side window.
-          (set-window-buffer main-window main-buffer)
-          (let ((ghostel-window
-                 (display-buffer
-                  ghostel-buffer
-                  '((display-buffer-in-side-window)
-                    (side . left)
-                    (slot . 0)
-                    (window-width . 0.5)))))
-            (set-window-dedicated-p ghostel-window t))
-          (select-window main-window))))))
-
-;; Set up both the daemon's initial frame and each new GUI client frame.
-(add-hook 'emacs-startup-hook #'tarutyyyne-setup-window-layout)
-(add-hook 'after-make-frame-functions #'tarutyyyne-setup-window-layout)
+;; Window layout and virtual-client tab management live in workspaces.el.
 
 
 ;;; init.el ends here
