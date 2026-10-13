@@ -12,7 +12,7 @@
 | Bash | `~/.bashrc` と `~/.bash_profile` は通常ファイル | Home Manager の生成ファイルと競合 |
 | Git | `~/.gitconfig` が GitHub CLI の helper を設定 | Home Manager の XDG Git config と併存すると helper が重複する |
 | Emacs service | pacman の `/usr/lib/systemd/user/emacs.service` に `~/Git/Emacsyyyne` の drop-in を重ねる | 新しい user unit より旧 drop-in が優先され得る。既存の target.wants symlink も競合 |
-| Pi と Herdr の state | `~/.pi/agent` と `~/.config/herdr` | 認証、session、log は移設しない |
+| Pi と Herdr の state | `~/.pi/agent` と `~/.config/herdr` | Pi の認証情報と Herdr の session/log は移設しない。Herdr の `config.toml` と `sounds/` は Home Manager 管理 |
 | pacman 版 Emacs、Herdr、Git とその他の profile | host に残る | Nix 版の切り替えとは別管理。初回移行では削除しない |
 
 ## 検査と準備
