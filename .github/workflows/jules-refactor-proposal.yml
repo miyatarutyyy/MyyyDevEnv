@@ -1,0 +1,185 @@
+name: Jules Refactoring Proposals
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Every day at 09:37 JST (00:37 UTC).
+    - cron: '37 0 * * *'
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: jules-refactoring-proposals
+  cancel-in-progress: false
+
+jobs:
+  propose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Ask Jules for a proposal, then create a GitHub issue
+        uses: actions/github-script@v7
+        env:
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const key = process.env.JULES_API_KEY;
+            if (!key) throw new Error('Set JULES_API_KEY in repository Actions secrets.');
+
+            const { owner, repo: repository } = context.repo;
+            const repo = `${owner}/${repository}`;
+            const branch = context.payload.repository?.default_branch ??
+              context.ref.replace(/^refs\/heads\//, '');
+            const base = 'https://jules.googleapis.com/v1alpha/';
+
+            async function jules(path, method = 'GET', payload) {
+              const response = await fetch(base + path, {
+                method,
+                headers: {
+                  'X-Goog-Api-Key': key,
+                  'Content-Type': 'application/json',
+                },
+                ...(payload === undefined ? {} : {body: JSON.stringify(payload)}),
+              });
+              const raw = await response.text();
+              if (!response.ok) {
+                throw new Error(`Jules API ${response.status}: ${raw.slice(0, 1200)}`);
+              }
+              return raw ? JSON.parse(raw) : {};
+            }
+
+            // Avoid duplicates within the same JST day and commit.
+            // Allow fresh reviews of unchanged commits on later days.
+            const shortSha = context.sha.slice(0, 12);
+            const jstDate = new Date(Date.now() + 9 * 60 * 60 * 1000)
+              .toISOString().slice(0, 10);
+            const issueTitle = `[Jules Proposal] Refactoring review (${jstDate}, ${shortSha})`;
+            const matches = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${repo} is:issue in:title "${shortSha}"`,
+              per_page: 100,
+            });
+            if (matches.data.items.some(issue => issue.title === issueTitle)) {
+              core.info('A proposal for this commit and JST date already exists. Skipping.');
+              return;
+            }
+
+            const prompt = `Act only as a read-only refactoring reviewer of ${repo} on ${branch}.
+              Inspect the existing source code during the PLANNING stage.
+              Your plan is the deliverable: a concrete refactoring proposal, NOT a plan
+              to begin analysis later. Do not modify files, open pull requests, create
+              branches, commit, or implement changes. No approval will be given.
+
+              Identify up to THREE high-value, non-cosmetic refactoring opportunities.
+              For each, put the following evidence in your generated PLAN STEP:
+              - A precise descriptive title
+              - Current problem and its impact
+              - Relevant file paths and symbols, with line ranges if verified
+              - Proposed change and why it improves maintainability or correctness
+              - Risk / backwards-compatibility considerations
+              - Tests or checks that would validate the eventual refactoring
+
+              Prefer specific observations supported by code over general advice.
+              Never invent file locations or claim test results you did not verify.
+              If you cannot find a worthwhile improvement, say so in the plan.`;
+
+            // Resolve the actual Jules Source ID.
+            let source;
+            let sourcePageToken;
+            do {
+              const params = new URLSearchParams({pageSize: '100'});
+              if (sourcePageToken) {
+                params.set('pageToken', sourcePageToken);
+              }
+
+              const page = await jules(`sources?${params}`);
+              source = (page.sources ?? []).find(item =>
+                item.githubRepo?.owner?.toLowerCase() === owner.toLowerCase() &&
+                item.githubRepo?.repo?.toLowerCase() === repository.toLowerCase()
+              );
+              sourcePageToken = page.nextPageToken;
+            } while (!source && sourcePageToken);
+
+            if (!source?.name) {
+              throw new Error(`Repository ${repo} is not connected to Jules.`);
+            }
+
+            const session = await jules('sessions', 'POST', {
+              title: `Read-only refactoring proposal for ${repo}`,
+              prompt,
+              sourceContext: {
+                source: source.name,
+                githubRepoContext: {startingBranch: branch},
+              },
+              requirePlanApproval: true,
+              automationMode: 'AUTOMATION_MODE_UNSPECIFIED',
+            });
+            if (!/^sessions\/[^/]+$/.test(session.name ?? '')) {
+              throw new Error(`Unexpected Jules session: ${JSON.stringify(session)}`);
+            }
+            core.info(`Jules session: ${session.url ?? session.name}`);
+
+            let state;
+            for (let attempt = 0; attempt < 42; attempt++) {
+              const status = await jules(session.name);
+              state = status.state;
+              if (state === 'AWAITING_PLAN_APPROVAL') break;
+              if (['FAILED', 'COMPLETED', 'PAUSED', 'AWAITING_USER_FEEDBACK'].includes(state)) {
+                throw new Error(`Unexpected Jules state ${state}: ${status.url ?? session.name}`);
+              }
+              await new Promise(resolve => setTimeout(resolve, 30000));
+            }
+            if (state !== 'AWAITING_PLAN_APPROVAL') {
+              throw new Error(`Timed out waiting for a Jules plan: ${session.url ?? session.name}`);
+            }
+
+            let token;
+            const activities = [];
+            do {
+              const params = new URLSearchParams({pageSize: '100'});
+              if (token) params.set('pageToken', token);
+              const page = await jules(`${session.name}/activities?${params}`);
+              activities.push(...(page.activities ?? []));
+              token = page.nextPageToken;
+            } while (token);
+
+            const plans = activities.filter(a => a.planGenerated?.plan?.steps?.length);
+            const plan = plans.at(-1)?.planGenerated.plan;
+            if (!plan) {
+              throw new Error(`Jules reached approval stage but returned no plan: ${session.url ?? session.name}`);
+            }
+            const lines = plan.steps.map((step, i) => {
+              return `### ${i + 1}. ${step.title || 'Proposal'}\n\n${step.description || '(No details supplied)'}`;
+            });
+            const sessionUrl = session.url ?? `https://jules.google.com/`;
+            const body = [
+              '> [!IMPORTANT]',
+              '> Jules produced a plan only. **Do not approve this Jules plan.**',
+              '> A human must evaluate the proposals; Pi may implement only after approval.',
+              '',
+              `Repository: \`${repo}\``,
+              `Branch: \`${branch}\``,
+              `Reviewed commit: ${context.sha}`,
+              `Jules session: ${sessionUrl}`,
+              '',
+              '## Refactoring proposals',
+              ...lines,
+              '',
+              '## Human / Pi review checklist',
+              '- [ ] Confirm each stated problem against source code',
+              '- [ ] Check for overlap with existing issues or changes',
+              '- [ ] Confirm backwards compatibility and test strategy',
+              '- [ ] Approve the exact scope before any implementation',
+              '',
+              '<!-- JULES-PLAN-ONLY: do not apply the "jules" issue label -->',
+            ].join('\n').slice(0, 60000);
+
+            const created = await github.rest.issues.create({
+              owner,
+              repo: repository,
+              title: issueTitle,
+              body,
+            });
+            core.info(`Created proposal: ${created.data.html_url}`);
