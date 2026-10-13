@@ -51,20 +51,10 @@ jobs:
               return raw ? JSON.parse(raw) : {};
             }
 
-            // Avoid duplicates within the same JST day and commit.
-            // Allow fresh reviews of unchanged commits on later days.
-            const shortSha = context.sha.slice(0, 12);
+            // Give each proposal a stable identity for this JST day and commit.
+            // A later day intentionally produces new IDs for an unchanged commit.
             const jstDate = new Date(Date.now() + 9 * 60 * 60 * 1000)
               .toISOString().slice(0, 10);
-            const issueTitle = `[Jules Proposal] Refactoring review (${jstDate}, ${shortSha})`;
-            const matches = await github.rest.search.issuesAndPullRequests({
-              q: `repo:${repo} is:issue in:title "${shortSha}"`,
-              per_page: 100,
-            });
-            if (matches.data.items.some(issue => issue.title === issueTitle)) {
-              core.info('A proposal for this commit and JST date already exists. Skipping.');
-              return;
-            }
 
             const prompt = `Act only as a read-only refactoring reviewer of ${repo} on ${branch}.
               Inspect the existing source code during the PLANNING stage.
@@ -150,36 +140,59 @@ jobs:
             if (!plan) {
               throw new Error(`Jules reached approval stage but returned no plan: ${session.url ?? session.name}`);
             }
-            const lines = plan.steps.map((step, i) => {
-              return `### ${i + 1}. ${step.title || 'Proposal'}\n\n${step.description || '(No details supplied)'}`;
-            });
-            const sessionUrl = session.url ?? `https://jules.google.com/`;
-            const body = [
-              '> [!IMPORTANT]',
-              '> Jules produced a plan only. **Do not approve this Jules plan.**',
-              '> A human must evaluate the proposals; Pi may implement only after approval.',
-              '',
-              `Repository: \`${repo}\``,
-              `Branch: \`${branch}\``,
-              `Reviewed commit: ${context.sha}`,
-              `Jules session: ${sessionUrl}`,
-              '',
-              '## Refactoring proposals',
-              ...lines,
-              '',
-              '## Human / Pi review checklist',
-              '- [ ] Confirm each stated problem against source code',
-              '- [ ] Check for overlap with existing issues or changes',
-              '- [ ] Confirm backwards compatibility and test strategy',
-              '- [ ] Approve the exact scope before any implementation',
-              '',
-              '<!-- JULES-PLAN-ONLY: do not apply the "jules" issue label -->',
-            ].join('\n').slice(0, 60000);
-
-            const created = await github.rest.issues.create({
+            const existingIssues = await github.paginate(github.rest.issues.listForRepo, {
               owner,
               repo: repository,
-              title: issueTitle,
-              body,
+              state: 'all',
+              per_page: 100,
             });
-            core.info(`Created proposal: ${created.data.html_url}`);
+            const existingProposalIds = new Set();
+            for (const issue of existingIssues) {
+              const match = issue.body?.match(/<!-- JULES-PROPOSAL-ID: ([^ ]+) -->/);
+              if (match) existingProposalIds.add(match[1]);
+            }
+
+            const sessionUrl = session.url ?? 'https://jules.google.com/';
+            for (const [index, step] of plan.steps.entries()) {
+              const proposalId = `jules-proposal:${jstDate}:${context.sha}:step-${index + 1}`;
+              if (existingProposalIds.has(proposalId)) {
+                core.info(`Proposal ${proposalId} already exists. Skipping.`);
+                continue;
+              }
+
+              const proposalTitle = step.title || 'Refactoring proposal';
+              const body = [
+                `<!-- JULES-PROPOSAL-ID: ${proposalId} -->`,
+                '',
+                '> [!IMPORTANT]',
+                '> Jules produced a plan only. **Do not approve this Jules plan.**',
+                '> A human must evaluate the proposal; Pi may implement only after approval.',
+                '',
+                `Repository: \`${repo}\``,
+                `Branch: \`${branch}\``,
+                `Reviewed commit: ${context.sha}`,
+                `Run date (JST): ${jstDate}`,
+                `Jules session: ${sessionUrl}`,
+                '',
+                `## ${proposalTitle}`,
+                '',
+                step.description || '(No details supplied)',
+                '',
+                '## Human / Pi review checklist',
+                '- [ ] Confirm each stated problem against source code',
+                '- [ ] Check for overlap with existing issues or changes',
+                '- [ ] Confirm backwards compatibility and test strategy',
+                '- [ ] Approve the exact scope before any implementation',
+                '',
+                '<!-- JULES-PLAN-ONLY: do not apply the "jules" issue label -->',
+              ].join('\n').slice(0, 60000);
+
+              const created = await github.rest.issues.create({
+                owner,
+                repo: repository,
+                title: `[Jules Proposal] ${proposalTitle}`,
+                body,
+              });
+              existingProposalIds.add(proposalId);
+              core.info(`Created proposal: ${created.data.html_url}`);
+            }
