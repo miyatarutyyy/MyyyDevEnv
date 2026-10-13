@@ -7,6 +7,7 @@
 (require 'ghostel)
 (require 'ghostel-desktop)
 (require 'memorandum)
+(require 'server)
 
 (defvar tarutyyyne-workspace--frame-layouts (make-hash-table :test #'eq :weakness 'key)
   "Canonical window configuration for each frame.")
@@ -15,6 +16,9 @@
 (defvar-local tarutyyyne-workspace--herdr-started nil)
 (defvar tarutyyyne-workspace--fresh-frame nil
   "Non-nil while initializing a newly created Emacsclient frame.")
+
+(defvar tarutyyyne-workspace--client-console-timers (make-hash-table :test #'eq)
+  "Pending Daily Console display timers, keyed by Emacsclient frame.")
 
 (defconst tarutyyyne-workspace--id-key 'tarutyyyne-workspace-id)
 (defconst tarutyyyne-workspace--main-key 'tarutyyyne-workspace-main-buffer)
@@ -265,6 +269,38 @@ INITIAL selects the legacy buffer names for the first tab."
                          tarutyyyne-workspace--frame-layouts))
               (tarutyyyne-workspace--apply-tab frame tab))))))))
 
+(defun tarutyyyne-workspace--cancel-client-console (&optional frame)
+  "Cancel a pending client-start Daily Console display for FRAME."
+  (let* ((frame (or frame (selected-frame)))
+         (timer (gethash frame tarutyyyne-workspace--client-console-timers)))
+    (when (timerp timer)
+      (cancel-timer timer))
+    (remhash frame tarutyyyne-workspace--client-console-timers)))
+
+(defun tarutyyyne-workspace--show-client-console (frame)
+  "Show Daily Console in FRAME after its client request has been handled."
+  (remhash frame tarutyyyne-workspace--client-console-timers)
+  (when (and (frame-live-p frame) (display-graphic-p frame))
+    (with-selected-frame frame
+      ;; Ensure the right-side main window exists before displaying the console.
+      (tarutyyyne-workspace--frame-ready frame)
+      (my-daily-console-open))))
+
+(defun tarutyyyne-workspace--client-frame-ready ()
+  "Schedule Daily Console for a client request without file arguments."
+  (let ((frame (selected-frame)))
+    (when (display-graphic-p frame)
+      (tarutyyyne-workspace--cancel-client-console frame)
+      ;; File requests run `server-switch-hook' synchronously before timers fire.
+      (puthash frame
+               (run-at-time 0.3 nil
+                            #'tarutyyyne-workspace--show-client-console frame)
+               tarutyyyne-workspace--client-console-timers))))
+
+(defun tarutyyyne-workspace--client-file-requested ()
+  "Cancel the default console when a client supplied a file or buffer."
+  (tarutyyyne-workspace--cancel-client-console (selected-frame)))
+
 (defun tarutyyyne-workspace--restore-desktop ()
   "Reconnect every restored tab to the shared Herdr session."
   (dolist (frame (frame-list))
@@ -289,6 +325,10 @@ INITIAL selects the legacy buffer names for the first tab."
 (add-hook 'tab-bar-tab-post-open-functions #'tarutyyyne-workspace--tab-opened)
 (add-hook 'tab-bar-tab-post-select-functions #'tarutyyyne-workspace--tab-selected)
 (add-hook 'desktop-after-read-hook #'tarutyyyne-workspace--restore-desktop)
+(add-hook 'server-after-make-frame-hook
+          #'tarutyyyne-workspace--client-frame-ready)
+(add-hook 'server-switch-hook
+          #'tarutyyyne-workspace--client-file-requested)
 (add-hook 'emacs-startup-hook
           (lambda () (tarutyyyne-workspace--frame-ready (selected-frame))))
 (add-hook 'after-make-frame-functions
