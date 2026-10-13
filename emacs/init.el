@@ -42,6 +42,8 @@
       nil 'nomessage)
 (load (expand-file-name "memorandum.el" user-emacs-directory)
       nil 'nomessage)
+(load (expand-file-name "my-daily-console.el" user-emacs-directory)
+      nil 'nomessage)
 
 ;; Keep visited files in sync when they change on disk outside Emacs.
 (global-auto-revert-mode 1)
