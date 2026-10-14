@@ -26,6 +26,9 @@ in
     ".pi/agent/agents".source = ../pi/agent/agents;
     ".pi/agent/extensions".source = piExtensions;
     ".pi/agent/keybindings.json".source = ../pi/agent/keybindings.json;
+    ".pi/agent/i-have-adhd.json".text = ''
+      { "alwaysOn": true }
+    '';
     ".pi/agent/settings.json" = {
       source = ../pi/agent/settings.json;
       force = true;

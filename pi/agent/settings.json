@@ -17,6 +17,9 @@
   "editorPaddingX": 1,
   "tuiMode": "fullscreen",
   "theme": "my-theme",
+  "packages": [
+    "https://github.com/ayghri/i-have-adhd"
+  ],
   "terminal": {
     "showTerminalProgress": false
   }
