@@ -30,6 +30,7 @@ in
       source = ../pi/agent/settings.json;
       force = true;
     };
+    ".pi/agent/skills/yomiyasu".source = ../pi/agent/skills/yomiyasu;
     ".pi/agent/themes".source = ../pi/agent/themes;
   };
 }
