@@ -50,6 +50,29 @@ const SetPlanParams = Type.Object({
   ),
 });
 
+const AddPhaseParams = Type.Object({
+  id: Type.String({ minLength: 1 }),
+  title: Type.String({ minLength: 1 }),
+  status: Type.Optional(StringEnum(STATUSES)),
+  reason: Type.Optional(Type.String()),
+  tasks: Type.Array(
+    Type.Object({
+      id: Type.String({ minLength: 1 }),
+      title: Type.String({ minLength: 1 }),
+      status: Type.Optional(StringEnum(STATUSES)),
+      reason: Type.Optional(Type.String()),
+    }),
+  ),
+});
+
+const AddTaskParams = Type.Object({
+  phase_id: Type.String({ minLength: 1 }),
+  task_id: Type.String({ minLength: 1 }),
+  title: Type.String({ minLength: 1 }),
+  status: Type.Optional(StringEnum(STATUSES)),
+  reason: Type.Optional(Type.String()),
+});
+
 const UpdatePhaseParams = Type.Object({
   phase_id: Type.String({ minLength: 1 }),
   status: StringEnum(STATUSES),
@@ -320,10 +343,13 @@ export default function navigatorExtension(pi: ExtensionAPI) {
   pi.registerTool({
     name: "navigator_set_plan",
     label: "Set Navigator Plan",
-    description: "Create or replace the navigation plan. Call when a task plan is first established or materially replanned. Include a concise overall goal that fits within two terminal rows, PR-sized phases, and Issue-sized tasks. Each phase/task may start as PLANNED; use update tools to report progress at every start, completion, or blocker.",
+    description: "Create the initial navigation plan for a session only. This tool refuses to overwrite an existing plan; use navigator_add_phase or navigator_add_task to append follow-up work. Include a concise overall goal that fits within two terminal rows, PR-sized phases, and Issue-sized tasks. Each phase/task may start as PLANNED; use update tools to report progress at every start, completion, or blocker.",
     parameters: SetPlanParams,
     async execute(_toolCallId, params) {
       return serializeMutation(async () => {
+        if (state) {
+          throw new Error("A navigator plan already exists for this session. Use navigator_add_phase or navigator_add_task to preserve its history.");
+        }
         const input = params as typeof params & { phases: Array<{ id: string; title: string; status?: Status; reason?: string; tasks: Array<{ id: string; title: string; status?: Status; reason?: string }> }>; goal: string };
         const goal = input.goal.trim();
         if (!goal) throw new Error("Goal must not be empty.");
@@ -349,6 +375,67 @@ export default function navigatorExtension(pi: ExtensionAPI) {
         };
         await persist(next);
         return success(`Navigator plan saved: ${next.goal} (${next.phases.length} phase(s)).`);
+      });
+    },
+  });
+
+  pi.registerTool({
+    name: "navigator_add_phase",
+    label: "Add Navigator Phase",
+    description: "Append a new PR-sized phase to the current session plan without removing previous work. Use for a new task or follow-up work that deserves a separate phase. Phase and task IDs must be new and unique.",
+    parameters: AddPhaseParams,
+    async execute(_toolCallId, params) {
+      return serializeMutation(async () => {
+        if (!state) throw new Error("No navigator plan exists. Call navigator_set_plan first.");
+        const input = params as { id: string; title: string; status?: Status; reason?: string; tasks: Array<{ id: string; title: string; status?: Status; reason?: string }> };
+        if (state.phases.some((phase) => phase.id === input.id)) throw new Error(`Phase id already exists: ${input.id}`);
+        const existingTaskIds = new Set(state.phases.flatMap((phase) => phase.tasks.map((task) => task.id)));
+        for (const task of input.tasks) {
+          if (existingTaskIds.has(task.id)) throw new Error(`Task id already exists: ${task.id}`);
+          existingTaskIds.add(task.id);
+        }
+        const next = cloneState(state);
+        next.phases.push({
+          id: input.id,
+          title: input.title,
+          status: input.status ?? "PLANNED",
+          ...(input.status === "BLOCK" && input.reason?.trim() ? { reason: input.reason.trim() } : {}),
+          tasks: input.tasks.map((task) => ({
+            id: task.id,
+            title: task.title,
+            status: task.status ?? "PLANNED",
+            ...(task.status === "BLOCK" && task.reason?.trim() ? { reason: task.reason.trim() } : {}),
+          })),
+        });
+        await persist(next);
+        return success(`Phase ${input.id} appended (${next.phases.length} phase(s) total).`);
+      });
+    },
+  });
+
+  pi.registerTool({
+    name: "navigator_add_task",
+    label: "Add Navigator Task",
+    description: "Append a new Issue-sized task to an existing phase without removing or resetting previous work. Task IDs must be unique across the session plan.",
+    parameters: AddTaskParams,
+    async execute(_toolCallId, params) {
+      return serializeMutation(async () => {
+        if (!state) throw new Error("No navigator plan exists. Call navigator_set_plan first.");
+        const input = params as { phase_id: string; task_id: string; title: string; status?: Status; reason?: string };
+        const phase = state.phases.find((candidate) => candidate.id === input.phase_id);
+        if (!phase) throw new Error(`Phase not found: ${input.phase_id}`);
+        if (state.phases.some((candidate) => candidate.tasks.some((task) => task.id === input.task_id))) {
+          throw new Error(`Task id already exists: ${input.task_id}`);
+        }
+        const next = cloneState(state);
+        next.phases.find((candidate) => candidate.id === input.phase_id)!.tasks.push({
+          id: input.task_id,
+          title: input.title,
+          status: input.status ?? "PLANNED",
+          ...(input.status === "BLOCK" && input.reason?.trim() ? { reason: input.reason.trim() } : {}),
+        });
+        await persist(next);
+        return success(`Task ${input.task_id} appended to phase ${input.phase_id}.`);
       });
     },
   });
@@ -424,7 +511,7 @@ export default function navigatorExtension(pi: ExtensionAPI) {
     return {
       message: {
         customType: "pi-navigator-context",
-        content: `[NAVIGATOR PROGRESS]\n${planText}\n\nKeep the goal title concise enough to fit within two terminal rows. Keep this progress state current: call navigator_set_plan when establishing or materially revising the plan; call navigator_update_phase and navigator_update_task when work starts, moves, finishes, or becomes blocked. Do not mark work complete unless it is actually complete.`,
+        content: `[NAVIGATOR PROGRESS]\n${planText}\n\nKeep the goal title concise enough to fit within two terminal rows. This is the cumulative work history for the current session. Never replace an existing plan: navigator_set_plan is only for the first plan in a session and rejects calls when a plan already exists. Add follow-up work with navigator_add_task, or a new workstream with navigator_add_phase. Keep completed work in place. Use navigator_update_phase and navigator_update_task to report status changes. Do not mark work complete unless it is actually complete.`,
         display: false,
       },
     };

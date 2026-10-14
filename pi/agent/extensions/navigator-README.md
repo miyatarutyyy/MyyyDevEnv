@@ -7,12 +7,14 @@
 - **Task**: Issue-sized unit within a Phase, also with its own status.
 - Statuses for both levels: `PLANNED`, `ADDRESS`, `FINISH`, `BLOCK`.
 
-The agent updates progress through three model-callable tools:
+The agent updates progress through these model-callable tools:
 
-- `navigator_set_plan`: create or replace a goal, phases, and tasks.
+- `navigator_set_plan`: create the first goal, phases, and tasks in a session. It refuses to overwrite an existing plan.
+- `navigator_add_phase`: append a new Phase, with optional initial Tasks, while preserving all previous work.
+- `navigator_add_task`: append a Task to an existing Phase while preserving all previous work.
 - `navigator_update_phase`: update one Phase status.
 - `navigator_update_task`: update one Task status.
 
-Blocked statuses can include a `reason`. Phase and Task statuses are independent; changing one does not implicitly change its children or parent. Each successful update appends a `pi-navigator-state` custom session entry. On session start and branch navigation, the extension restores the latest matching entry from the active branch. This survives restarting Pi and resuming the same session; a separate new session starts without a plan.
+Use the add tools for follow-up requests and new workstreams. Do not rebuild the whole plan with `navigator_set_plan` after the initial plan. Phase and Task IDs must remain unique. Blocked statuses can include a `reason`. Phase and Task statuses are independent; changing one does not implicitly change its children or parent. Each successful update appends a `pi-navigator-state` custom session entry containing the cumulative plan. On session start and branch navigation, the extension restores the latest matching entry from the active branch. This preserves earlier phases and tasks across updates, Pi restarts, and resuming the same session; a separate new session starts without a plan.
 
 Home Manager manages `~/.pi/agent/extensions` as one immutable directory containing the existing managed extensions plus `navigator.ts`. This avoids trying to create a file underneath an existing read-only Nix-store directory link. Run `just check` to build the declared environment. Applying it to the active user profile remains a separate operation.
