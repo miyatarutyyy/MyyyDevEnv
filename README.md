@@ -17,3 +17,8 @@ My goal is to create an environment where I can think more deeply.
 
 The only problem? 
 **BUILDING ALL THIS IS GONNA BE A FRICKIN' TON OF WORK.**
+
+## How to start
+```
+ASK HOW TO START IT TO YOUR AI AGENT STUPID
+```
