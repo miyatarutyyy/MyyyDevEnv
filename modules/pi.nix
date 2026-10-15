@@ -34,6 +34,8 @@ in
       force = true;
     };
     ".pi/agent/skills/yomiyasu".source = ../pi/agent/skills/yomiyasu;
+    ".pi/agent/skills/sdd".source = ../pi/agent/skills/sdd;
+    ".pi/agent/prompts".source = ../pi/agent/prompts;
     ".pi/agent/themes".source = ../pi/agent/themes;
   };
 }

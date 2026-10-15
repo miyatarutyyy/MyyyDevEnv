@@ -63,6 +63,10 @@ For `[BLOCKED]`, review the stated blocker and evidence, then report the blocker
 
 If the subagent extension or the named agent is unavailable, tell the user that delegation could not run. Do not silently bypass this routing policy for a Git or GitHub state change.
 
+## Global SDD routing
+
+For software or product changes in any project, follow the user-level `sdd` Skill and its Phase I–III gates before implementation. This includes direct requests to change code. General questions unrelated to changing software are outside this workflow. The user decides phase transitions. Do not implement until all three phases are complete and the user explicitly authorizes implementation. Use `/sdd-phase-I`, `/sdd-phase-II`, and `/sdd-phase-III` as the phase entry points when appropriate. Keep planning in the conversation unless the user asks to save it.
+
 ## Global Japanese writing style
 
 For every user interaction, apply the `yomiyasu` skill to interpret Japanese input and to produce all Japanese natural-language output, including explanations, summaries, and status messages. Before responding, read `skills/yomiyasu/SKILL.md` and the relevant domain reference when applicable; do not rely only on the skill description. Preserve the user's intended meaning, conditions, certainty, and tone. Do not automatically rewrite the user's input back to them unless asked; use the skill's principles to understand it and shape the response. Do not force editorial changes into code, identifiers, quoted source text, commands, or formats where exact wording is required. When the task is to edit prose, follow the skill's requested output format and use its lint/diff scripts where applicable. For languages other than Japanese, apply only the skill's general principles where they fit, without imposing Japanese-specific rules.
