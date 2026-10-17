@@ -135,7 +135,6 @@
 (defvar appendix-overlay-view-mode-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map global-map)
-    (define-key map (kbd "C-c") (make-sparse-keymap))
     (define-key map (kbd "C-x C-s") #'appendix-overlay-view-save)
     (define-key map (kbd "C-c C-c") #'appendix-overlay-view-save-and-quit)
     (define-key map (kbd "C-c C-k") #'appendix-overlay-view-quit)
@@ -149,7 +148,6 @@
 (define-derived-mode appendix-overlay-view-mode fundamental-mode "Appendix-View"
   "A composed view with read-only source and editable appendix notes.")
 
-(define-key appendix-overlay-view-mode-map (kbd "C-c") (make-sparse-keymap))
 (define-key appendix-overlay-view-mode-map (kbd "C-c C-c") #'appendix-overlay-view-save-and-quit)
 (define-key appendix-overlay-view-mode-map (kbd "C-c C-k") #'appendix-overlay-view-quit)
 (define-key appendix-overlay-view-mode-map (kbd "q") #'self-insert-command)
