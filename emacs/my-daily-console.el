@@ -1,6 +1,7 @@
 ;;; my-daily-console.el --- Daily console buffer -*- lexical-binding: t; -*-
 
 (require 'calendar)
+(require 'faces)
 (require 'memorandum)
 
 (defgroup my-daily-console nil
@@ -77,13 +78,20 @@ own content."
                     (aref my-daily-console--month-names (1- month))
                     day year hour minute second))))
 
+(defun my-daily-console--set-today-face (&optional _theme)
+  "Set the face used to highlight today's date.
+THEME is ignored; it allows this function to be used as a theme hook."
+  (set-face-attribute 'my-daily-console-today-face nil
+                      :foreground "#ff0000" :weight 'bold))
+
+(when (boundp 'enable-theme-functions)
+  (add-hook 'enable-theme-functions #'my-daily-console--set-today-face))
+(when (boundp 'disable-theme-functions)
+  (add-hook 'disable-theme-functions #'my-daily-console--set-today-face))
+
 (defun my-daily-console--render ()
   "Render all configured components in the current Daily Console buffer."
   (when (derived-mode-p 'my-daily-console-mode)
-    ;; `defface' alone can leave this face unspecified on graphical frames,
-    ;; especially when the theme is loaded after this module.
-    (set-face-attribute 'my-daily-console-today-face nil
-                        :foreground "#ff0000" :weight 'bold)
     (let ((inhibit-read-only t)
           (my-daily-console--current-time (current-time)))
       (erase-buffer)
@@ -120,6 +128,7 @@ own content."
 
 (define-derived-mode my-daily-console-mode special-mode "Daily-Console"
   "Major mode for the read-only Daily Console buffer."
+  (my-daily-console--set-today-face)
   (add-hook 'kill-buffer-hook #'my-daily-console--stop-refresh nil t))
 
 (defun my-daily-console-open ()
