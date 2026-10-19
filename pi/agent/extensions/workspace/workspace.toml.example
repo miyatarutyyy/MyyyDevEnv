@@ -1,0 +1,7 @@
+schema_version = 2
+name = "MyyyDevEnv"
+project_root = "environment-master"
+default_branch = "master"
+default_branch_worktree = "environment-master"
+worktrees_dir = "."
+worktree_name_template = "{project}-{branch_slug}"

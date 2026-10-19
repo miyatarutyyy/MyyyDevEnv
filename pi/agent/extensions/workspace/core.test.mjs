@@ -14,21 +14,26 @@ import {
   validateWorkspaceConfig,
 } from "./workspace-config.mjs";
 
-const validManifest = `schema_version = 1
+const validManifest = `schema_version = 2
 name = "MyyyDevEnv"
 project_root = "environment"
+default_branch = "master"
+default_branch_worktree = "environment"
 worktrees_dir = "."
 worktree_name_template = "{project}-{branch_slug}"
 `;
 
 function validConfig(overrides = {}) {
   return {
-    schema_version: 1,
+    schema_version: 2,
     name: "MyyyDevEnv",
     project_root: "environment",
+    default_branch: "master",
+    default_branch_worktree: "environment",
     worktrees_dir: ".",
     worktree_name_template: "{project}-{branch_slug}",
     ...overrides,
+    default_branch_worktree: overrides.default_branch_worktree ?? overrides.project_root ?? "environment",
   };
 }
 
@@ -36,11 +41,21 @@ test("parses the workspace manifest format", () => {
   assert.deepEqual(parseWorkspaceConfig(validManifest), validConfig());
 });
 
+test("the checked-in workspace.toml example matches the supported schema", async () => {
+  const example = await readFile(new URL("./workspace.toml.example", import.meta.url), "utf8");
+  assert.deepEqual(
+    parseWorkspaceConfig(example),
+    validConfig({ project_root: "environment-master", default_branch_worktree: "environment-master" }),
+  );
+});
+
 test("accepts blank lines, comments, whitespace, and # inside strings", () => {
   const source = `# workspace settings
-schema_version=1
+schema_version=2
 name = "My # Dev Env" # trailing comment
 project_root = "repo"
+default_branch = "master"
+default_branch_worktree = "repo"
 worktrees_dir = "."
 worktree_name_template = "{project}-{branch_slug}"
 `;
@@ -51,18 +66,19 @@ test("rejects malformed assignments, duplicate keys, and unsupported keys", () =
   assert.throws(() => parseWorkspaceConfig(`${validManifest}\n[workspace]\n`), /top-level key/);
   assert.throws(() => parseWorkspaceConfig(`${validManifest}name = "again"\n`), /duplicate key name/);
   assert.throws(() => parseWorkspaceConfig(`${validManifest}unexpected = "value"\n`), /Unknown workspace.toml key/);
-  assert.throws(() => parseWorkspaceConfig(`schema_version = 1\nname = "unterminated\n`), /unterminated string/);
+  assert.throws(() => parseWorkspaceConfig(`schema_version = 2\nname = "unterminated\n`), /unterminated string/);
 });
 
 test("rejects missing and unsupported schema versions", () => {
   const { name: _name, ...missingName } = validConfig();
   assert.throws(() => validateWorkspaceConfig(missingName), /Missing required/);
-  assert.throws(() => validateWorkspaceConfig(validConfig({ schema_version: 2 })), /Unsupported.*schema_version/);
+  assert.throws(() => validateWorkspaceConfig(validConfig({ schema_version: 1 })), /Unsupported.*schema_version/);
 });
 
 test("rejects unsafe or unsupported paths and naming templates", () => {
   assert.throws(() => validateWorkspaceConfig(validConfig({ project_root: "../outside" })), /project_root/);
   assert.throws(() => validateWorkspaceConfig(validConfig({ project_root: "/tmp/repo" })), /project_root/);
+  assert.throws(() => validateWorkspaceConfig(validConfig({ default_branch_worktree: "../outside" })), /default_branch_worktree/);
   assert.throws(() => validateWorkspaceConfig(validConfig({ worktrees_dir: "../outside" })), /worktrees_dir/);
   assert.throws(() => validateWorkspaceConfig(validConfig({ worktree_name_template: "../{branch_slug}" })), /worktree_name_template/);
 });
@@ -72,6 +88,7 @@ test("resolves declared paths relative to workspace.toml", () => {
   assert.deepEqual(result, {
     workspaceRoot: "/home/user/MyyyDevEnv",
     projectRoot: "/home/user/MyyyDevEnv/environment",
+    defaultBranchWorktree: "/home/user/MyyyDevEnv/environment",
     worktreesRoot: "/home/user/MyyyDevEnv",
   });
   assert.throws(() => resolveWorkspacePaths("workspace.toml", validConfig()), /must be absolute/);
@@ -83,11 +100,12 @@ test("reads a manifest and verifies resolved directories stay inside workspace",
   const projectRoot = path.join(root, "repo");
   await mkdir(projectRoot);
   const manifestPath = path.join(root, "workspace.toml");
-  await writeFile(manifestPath, validManifest.replace('"environment"', '"repo"'));
+  await writeFile(manifestPath, validManifest.replaceAll('"environment"', '"repo"'));
 
   const loaded = await readWorkspaceConfig(manifestPath);
   assert.equal(loaded.workspaceRoot, root);
   assert.equal(loaded.projectRoot, projectRoot);
+  assert.equal(loaded.defaultBranchWorktree, projectRoot);
   assert.equal(loaded.worktreesRoot, root);
   assert.equal((await readFile(manifestPath, "utf8")).length > 0, true);
 });
@@ -97,7 +115,7 @@ test("detects a valid workspace for its declared checkout", async (t) => {
   t.after(() => rm(root, { recursive: true, force: true }));
   const projectRoot = path.join(root, "repo");
   await mkdir(projectRoot);
-  await writeFile(path.join(root, "workspace.toml"), validManifest.replace('"environment"', '"repo"'));
+  await writeFile(path.join(root, "workspace.toml"), validManifest.replaceAll('"environment"', '"repo"'));
 
   const workspace = await detectWorkspaceConfigForCwd("/some/checkout/subdir", async (cwd) => {
     assert.equal(cwd, "/some/checkout/subdir");
@@ -119,7 +137,7 @@ test("startup detection is inert without a valid matching workspace manifest", a
   assert.equal(await detectWorkspaceConfig(projectRoot), undefined);
 
   await mkdir(path.join(root, "other-repo"));
-  await writeFile(path.join(root, "workspace.toml"), validManifest.replace('"environment"', '"other-repo"'));
+  await writeFile(path.join(root, "workspace.toml"), validManifest.replaceAll('"environment"', '"other-repo"'));
   assert.equal(await detectWorkspaceConfig(projectRoot), undefined);
 });
 
@@ -128,14 +146,17 @@ test("workspace context is added as a prompt section and removed when absent", (
   const workspace = {
     workspaceRoot: "/tmp/workspace&<>",
     projectRoot: "/tmp/workspace&<>/repo",
+    defaultBranchWorktree: "/tmp/workspace&<>/repo",
     worktreesRoot: "/tmp/workspace&<>",
+    config: { default_branch: "master" },
     manifestPath: "/tmp/workspace&<>/workspace.toml",
   };
 
   setWorkspacePromptSection(sections, workspace);
   assert.equal(sections.existing, "keep me");
   assert.match(sections.workspace, /Workspace: \/tmp\/workspace&amp;&lt;&gt;/);
-  assert.match(sections.workspace, /Do not create, move, or delete Git worktrees/);
+  assert.match(sections.workspace, /ignore entries marked `prunable`/);
+  assert.match(sections.workspace, /ask the user/);
   assert.match(formatWorkspaceContext(workspace), /Project checkout:/);
 
   setWorkspacePromptSection(sections, undefined);
@@ -151,7 +172,7 @@ test("rejects a project path that escapes through a symlink", async (t) => {
   await mkdir(outsideRoot);
   await symlink(outsideRoot, path.join(workspaceRoot, "repo"));
   const manifestPath = path.join(workspaceRoot, "workspace.toml");
-  await writeFile(manifestPath, validManifest.replace('"environment"', '"repo"'));
+  await writeFile(manifestPath, validManifest.replaceAll('"environment"', '"repo"'));
 
   await assert.rejects(readWorkspaceConfig(manifestPath), /project_root resolves outside the workspace through a symlink/);
 });

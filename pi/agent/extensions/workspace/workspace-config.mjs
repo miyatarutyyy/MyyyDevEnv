@@ -1,12 +1,14 @@
 import { readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 
-export const WORKSPACE_SCHEMA_VERSION = 1;
+export const WORKSPACE_SCHEMA_VERSION = 2;
 
 const REQUIRED_KEYS = [
   "schema_version",
   "name",
   "project_root",
+  "default_branch",
+  "default_branch_worktree",
   "worktrees_dir",
   "worktree_name_template",
 ];
@@ -66,7 +68,7 @@ function assertRelativePath(value, key, { allowDot = false } = {}) {
 
   const segments = value.split("/");
   if (segments.some((segment) => segment === "" || segment === "." || segment === "..")) {
-    throw new Error(`${key} must not contain empty, '.' or '..' path segments`);
+    throw new Error(`${key} must not contain empty, '.', or '..' path segments`);
   }
 }
 
@@ -90,13 +92,14 @@ export function validateWorkspaceConfig(config) {
   if (config.schema_version !== WORKSPACE_SCHEMA_VERSION) {
     throw new Error(`Unsupported workspace.toml schema_version: ${config.schema_version}`);
   }
-  for (const key of ["name", "project_root", "worktrees_dir", "worktree_name_template"]) {
+  for (const key of ["name", "project_root", "default_branch", "default_branch_worktree", "worktrees_dir", "worktree_name_template"]) {
     if (typeof config[key] !== "string" || config[key].trim() === "") {
       throw new Error(`${key} must be a non-empty string`);
     }
   }
 
   assertRelativePath(config.project_root, "project_root");
+  assertRelativePath(config.default_branch_worktree, "default_branch_worktree", { allowDot: true });
   assertRelativePath(config.worktrees_dir, "worktrees_dir", { allowDot: true });
   if (config.worktree_name_template !== WORKTREE_NAME_TEMPLATE) {
     throw new Error(`worktree_name_template must be ${JSON.stringify(WORKTREE_NAME_TEMPLATE)}`);
@@ -106,6 +109,8 @@ export function validateWorkspaceConfig(config) {
     schema_version: config.schema_version,
     name: config.name,
     project_root: config.project_root,
+    default_branch: config.default_branch,
+    default_branch_worktree: config.default_branch_worktree,
     worktrees_dir: config.worktrees_dir,
     worktree_name_template: config.worktree_name_template,
   });
@@ -135,11 +140,17 @@ export function resolveWorkspacePaths(manifestPath, config) {
   const validated = validateWorkspaceConfig(config);
   const workspaceRoot = path.resolve(path.dirname(manifestPath));
   const projectRoot = path.resolve(workspaceRoot, validated.project_root);
+  const defaultBranchWorktree = path.resolve(workspaceRoot, validated.default_branch_worktree);
   const worktreesRoot = path.resolve(workspaceRoot, validated.worktrees_dir);
 
-  if (!isInside(workspaceRoot, projectRoot)) throw new Error("project_root resolves outside the workspace");
-  if (!isInside(workspaceRoot, worktreesRoot)) throw new Error("worktrees_dir resolves outside the workspace");
-  return Object.freeze({ workspaceRoot, projectRoot, worktreesRoot });
+  for (const [key, target] of [
+    ["project_root", projectRoot],
+    ["default_branch_worktree", defaultBranchWorktree],
+    ["worktrees_dir", worktreesRoot],
+  ]) {
+    if (!isInside(workspaceRoot, target)) throw new Error(`${key} resolves outside the workspace`);
+  }
+  return Object.freeze({ workspaceRoot, projectRoot, defaultBranchWorktree, worktreesRoot });
 }
 
 export async function readWorkspaceConfigForProject(projectRoot) {
@@ -182,9 +193,12 @@ export function formatWorkspaceContext(workspace) {
     "This checkout belongs to a personal workspace. Treat each checkout as independent.",
     `Workspace: ${escapeXml(workspace.workspaceRoot)}`,
     `Project checkout: ${escapeXml(workspace.projectRoot)}`,
+    `Default branch: ${escapeXml(workspace.config.default_branch)}`,
+    `Default-branch worktree: ${escapeXml(workspace.defaultBranchWorktree)}`,
     `Worktrees directory: ${escapeXml(workspace.worktreesRoot)}`,
     `Workspace manifest: ${escapeXml(workspace.manifestPath)}`,
-    "Read workspace.toml when you need the declared workspace layout. Do not create, move, or delete Git worktrees unless the user explicitly requests it.",
+    "Read workspace.toml before selecting a working directory. Use `git worktree list` as the authority for existing checkouts and ignore entries marked `prunable`.",
+    "For a product task, choose the registered, non-prunable checkout that matches the request. If none is suitable, ask the user; do not create a worktree automatically or silently switch to another checkout.",
   ].join("\n");
 }
 
@@ -200,10 +214,12 @@ export async function readWorkspaceConfig(manifestPath) {
   const paths = resolveWorkspacePaths(absoluteManifestPath, config);
   const workspaceRoot = await realpath(paths.workspaceRoot);
   const projectRoot = await realpath(paths.projectRoot);
+  const defaultBranchWorktree = await realpath(paths.defaultBranchWorktree);
   const worktreesRoot = await realpath(paths.worktreesRoot);
 
   for (const [label, directory] of [
     ["project_root", projectRoot],
+    ["default_branch_worktree", defaultBranchWorktree],
     ["worktrees_dir", worktreesRoot],
   ]) {
     if (!isInside(workspaceRoot, directory)) {
@@ -217,6 +233,7 @@ export async function readWorkspaceConfig(manifestPath) {
     config,
     workspaceRoot,
     projectRoot,
+    defaultBranchWorktree,
     worktreesRoot,
   });
 }
