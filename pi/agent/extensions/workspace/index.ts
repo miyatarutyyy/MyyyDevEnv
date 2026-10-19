@@ -1,6 +1,7 @@
-import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
@@ -13,230 +14,126 @@ import {
 } from "./workspace-config.mjs";
 
 const execFileAsync = promisify(execFile);
-const MANIFEST_NAME = "workspace.toml";
-const SCHEMA_VERSION = 2;
 const WORKTREE_NAME_TEMPLATE = "{project}-{branch_slug}";
-
 type Worktree = { path: string; branch: string | null };
 
-function tomlString(value: string): string {
-  return JSON.stringify(value);
-}
-
-function existingString(source: string, key: string): string | undefined {
-  const match = source.match(new RegExp(`^${key}\\s*=\\s*("(?:\\\\.|[^"\\\\])*")\\s*(?:#.*)?$`, "m"));
-  if (!match) return undefined;
-  try {
-    return JSON.parse(match[1]) as string;
-  } catch {
-    return undefined;
-  }
-}
-
-function parseWorktrees(output: string): Worktree[] {
-  const worktrees: Worktree[] = [];
-  let current: { path?: string; branch?: string | null; prunable?: boolean } = {};
-  const finish = () => {
-    if (current.path && !current.prunable) {
-      worktrees.push({ path: current.path, branch: current.branch ?? null });
-    }
-    current = {};
-  };
-
-  for (const line of output.split(/\r?\n/)) {
-    if (!line) {
-      finish();
-    } else if (line.startsWith("worktree ")) {
-      current.path = line.slice("worktree ".length);
-    } else if (line.startsWith("branch ")) {
-      const ref = line.slice("branch ".length);
-      current.branch = ref.startsWith("refs/heads/") ? ref.slice("refs/heads/".length) : ref;
-    } else if (line.startsWith("prunable ")) {
-      current.prunable = true;
-    }
-  }
-  finish();
-  return worktrees;
-}
-
-async function gitOutput(cwd: string, ...args: string[]): Promise<string> {
+async function git(cwd: string, ...args: string[]): Promise<string> {
   const { stdout } = await execFileAsync("git", args, { cwd, encoding: "utf8" });
   return stdout.trim();
 }
 
-async function inputValue(
-  ctx: ExtensionCommandContext,
-  label: string,
-  current: string,
-  example = "",
-): Promise<string | undefined> {
-  const hint = current
-    ? `Current value: ${current}. Press Enter to keep it.`
-    : example || "Enter a value, or press Escape to cancel.";
-  const answer = await ctx.ui.input(label, hint);
-  if (answer === undefined) return undefined;
-  return answer.trim() || current;
+function manifestString(source: string, key: string): string | undefined {
+  const match = source.match(new RegExp(`^${key}\\s*=\\s*("(?:\\\\.|[^"\\\\])*")\\s*(?:#.*)?$`, "m"));
+  if (!match) return undefined;
+  try { return JSON.parse(match[1]) as string; } catch { return undefined; }
 }
 
-function manifestText(values: {
-  name: string;
-  projectRoot: string;
-  defaultBranch: string;
-  defaultBranchWorktree: string;
-  worktreesDir: string;
-}): string {
-  return [
-    `schema_version = ${SCHEMA_VERSION}`,
-    `name = ${tomlString(values.name)}`,
-    `project_root = ${tomlString(values.projectRoot)}`,
-    `default_branch = ${tomlString(values.defaultBranch)}`,
-    `default_branch_worktree = ${tomlString(values.defaultBranchWorktree)}`,
-    `worktrees_dir = ${tomlString(values.worktreesDir)}`,
-    `worktree_name_template = ${tomlString(WORKTREE_NAME_TEMPLATE)}`,
-    "",
-  ].join("\n");
+function parseWorktrees(source: string): Worktree[] {
+  const result: Worktree[] = [];
+  let entry: { path?: string; branch?: string | null; prunable?: boolean } = {};
+  const flush = () => {
+    if (entry.path && !entry.prunable) result.push({ path: entry.path, branch: entry.branch ?? null });
+    entry = {};
+  };
+  for (const line of source.split(/\r?\n/)) {
+    if (!line) flush();
+    else if (line.startsWith("worktree ")) entry.path = line.slice(9);
+    else if (line.startsWith("branch ")) {
+      const ref = line.slice(7);
+      entry.branch = ref.startsWith("refs/heads/") ? ref.slice(11) : ref;
+    } else if (line.startsWith("prunable ")) entry.prunable = true;
+  }
+  flush();
+  return result;
 }
 
-async function locateWorkspace(cwd: string): Promise<{ workspaceRoot: string; detectedProjectRoot?: string }> {
+async function input(ctx: ExtensionCommandContext, title: string, current: string, hint: string): Promise<string | undefined> {
+  const value = await ctx.ui.input(title, current ? `Current: ${current}. Press Enter to keep it.` : hint);
+  return value === undefined ? undefined : value.trim() || current;
+}
+
+async function currentWorkspaceConfig(cwd: string) {
   try {
-    const projectRoot = await realpath(await gitOutput(cwd, "rev-parse", "--show-toplevel"));
-    return { workspaceRoot: path.dirname(projectRoot), detectedProjectRoot: projectRoot };
+    return await readWorkspaceConfigForProject(await git(cwd, "rev-parse", "--show-toplevel"));
   } catch {
-    return { workspaceRoot: await realpath(cwd) };
+    return readWorkspaceConfig(path.join(cwd, "workspace.toml"));
   }
 }
 
 async function discoverWorkspaceConfig(cwd: string) {
-  const forCheckout = await detectWorkspaceConfigForCwd(cwd, async (workingDirectory: string) => {
-    return gitOutput(workingDirectory, "rev-parse", "--show-toplevel");
-  });
-  if (forCheckout) return forCheckout;
-
-  try {
-    return await readWorkspaceConfig(path.join(cwd, MANIFEST_NAME));
-  } catch {
-    return undefined;
-  }
-}
-
-async function currentWorkspaceConfig(cwd: string) {
-  let projectRoot: string;
-  try {
-    projectRoot = await realpath(await gitOutput(cwd, "rev-parse", "--show-toplevel"));
-  } catch {
-    return readWorkspaceConfig(path.join(cwd, MANIFEST_NAME));
-  }
-  return readWorkspaceConfigForProject(projectRoot);
+  const checkout = await detectWorkspaceConfigForCwd(cwd, (directory) => git(directory, "rev-parse", "--show-toplevel"));
+  if (checkout) return checkout;
+  try { return await readWorkspaceConfig(path.join(cwd, "workspace.toml")); } catch { return undefined; }
 }
 
 async function initializeWorkspace(cwd: string, ctx: ExtensionCommandContext) {
   if (!ctx.hasUI) throw new Error("Workspace initialization needs an interactive UI.");
+  const projectRoot = await git(cwd, "rev-parse", "--show-toplevel").then((root) => realpath(root)).catch(() => undefined);
+  const workspaceRoot = projectRoot ? path.dirname(projectRoot) : await realpath(cwd);
+  if (workspaceRoot === os.homedir() || workspaceRoot === path.parse(workspaceRoot).root) {
+    throw new Error(`Refusing to use ${workspaceRoot} as a workspace root.`);
+  }
 
-  const { workspaceRoot, detectedProjectRoot } = await locateWorkspace(cwd);
-  const manifestPath = path.join(workspaceRoot, MANIFEST_NAME);
+  const manifestPath = path.join(workspaceRoot, "workspace.toml");
   let existing = "";
-  try {
-    existing = await readFile(manifestPath, "utf8");
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-  }
+  try { existing = await readFile(manifestPath, "utf8"); }
+  catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+  if (existing && !(await ctx.ui.confirm("Review existing workspace.toml", `${existing}\nYes continues to the proposed replacement; No cancels.`))) return;
 
-  if (existing) {
-    const proceed = await ctx.ui.confirm(
-      "Review existing workspace.toml",
-      `${existing}\nThis command can replace only workspace.toml. It will not create or edit AGENTS.md. Continue?`,
-    );
-    if (!proceed) return undefined;
-  }
-
-  const currentProjectRoot = existingString(existing, "project_root")
-    ?? (detectedProjectRoot ? path.relative(workspaceRoot, detectedProjectRoot) : "");
-  const projectRootInput = await inputValue(
+  const projectName = await input(
     ctx,
-    "Git project root (relative to the workspace directory)",
-    currentProjectRoot,
+    "Git project root (relative to the workspace)",
+    manifestString(existing, "project_root") ?? (projectRoot ? path.relative(workspaceRoot, projectRoot) : ""),
     "For example: environment-master",
   );
-  if (projectRootInput === undefined || !projectRootInput) return undefined;
-  if (path.isAbsolute(projectRootInput) || projectRootInput.split(/[\\/]/).includes("..")) {
-    throw new Error("project_root must be a relative path inside the workspace directory.");
+  if (projectName === undefined) return;
+  if (!projectName || path.isAbsolute(projectName) || projectName.split(/[\\/]/).includes("..")) {
+    throw new Error("project_root must be a relative path inside the workspace.");
   }
-  const projectRoot = await realpath(path.resolve(workspaceRoot, projectRootInput));
-  const detectedGitRoot = await realpath(await gitOutput(projectRoot, "rev-parse", "--show-toplevel"));
-  if (detectedGitRoot !== projectRoot) {
-    throw new Error(`project_root must name a Git checkout root, not a subdirectory: ${detectedGitRoot}`);
+  const repository = await realpath(path.resolve(workspaceRoot, projectName));
+  if (await realpath(await git(repository, "rev-parse", "--show-toplevel")) !== repository) {
+    throw new Error("project_root must name a Git checkout root.");
   }
 
-  const worktrees = parseWorktrees(await gitOutput(projectRoot, "worktree", "list", "--porcelain"));
-  const detectedDefaultBranch = await gitOutput(projectRoot, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD")
-    .then((ref) => ref.replace(/^origin\//, ""))
-    .catch(() => "");
-  const defaultBranchInput = await inputValue(
-    ctx,
-    "Default branch name",
-    existingString(existing, "default_branch") ?? detectedDefaultBranch,
-  );
-  if (defaultBranchInput === undefined || !defaultBranchInput) return undefined;
-  let defaultBranch = defaultBranchInput;
-  let matchingWorktrees = worktrees.filter((worktree) => worktree.branch === defaultBranch);
-
-  if (matchingWorktrees.length === 0) {
-    const action = await ctx.ui.select(
-      `No usable registered worktree was found for default branch "${defaultBranch}". Choose what to do.`,
-      ["Enter a different default branch", "Cancel; do not write workspace.toml"],
+  const worktrees = parseWorktrees(await git(repository, "worktree", "list", "--porcelain"));
+  const remoteBranch = await git(repository, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD")
+    .then((ref) => ref.replace(/^origin\//, "")).catch(() => "");
+  let branch = await input(ctx, "Default branch name", manifestString(existing, "default_branch") ?? remoteBranch, "Enter the branch name.");
+  if (!branch) return;
+  let defaultWorktree = worktrees.find((item) => item.branch === branch);
+  if (!defaultWorktree) {
+    const choice = await ctx.ui.select(
+      `No registered, non-prunable worktree is on "${branch}". Choose an action.`,
+      ["Enter a different branch", "Cancel; do not write workspace.toml"],
     );
-    if (action !== "Enter a different default branch") return undefined;
-    const replacement = await inputValue(ctx, "Enter the correct default branch name", defaultBranch);
-    if (replacement === undefined || !replacement) return undefined;
-    defaultBranch = replacement;
-    matchingWorktrees = worktrees.filter((worktree) => worktree.branch === defaultBranch);
-    if (matchingWorktrees.length === 0) {
-      ctx.ui.notify(`No registered, non-prunable worktree is on "${defaultBranch}". No file was written.`, "warning");
-      return undefined;
+    if (choice !== "Enter a different branch") return;
+    branch = await input(ctx, "Default branch name", branch, "Enter the branch name.");
+    if (!branch) return;
+    defaultWorktree = worktrees.find((item) => item.branch === branch);
+    if (!defaultWorktree) {
+      ctx.ui.notify(`No registered worktree is on "${branch}". No file was written.`, "warning");
+      return;
     }
   }
 
-  let defaultBranchWorktree: Worktree | undefined;
-  if (matchingWorktrees.length === 1) {
-    defaultBranchWorktree = matchingWorktrees[0];
-  } else {
-    const paths = matchingWorktrees.map((worktree) => path.relative(workspaceRoot, worktree.path) || ".");
-    const selected = await ctx.ui.select(
-      `Choose the registered worktree on default branch "${defaultBranch}"`,
-      paths,
-    );
-    if (!selected) return undefined;
-    defaultBranchWorktree = matchingWorktrees.find((worktree) => (path.relative(workspaceRoot, worktree.path) || ".") === selected);
-  }
-  if (!defaultBranchWorktree) return undefined;
-
-  const relativeProjectRoot = path.relative(workspaceRoot, projectRoot);
-  const relativeDefaultWorktree = path.relative(workspaceRoot, defaultBranchWorktree.path);
-  if ([relativeProjectRoot, relativeDefaultWorktree].some((value) => value === ".." || value.startsWith(`..${path.sep}`) || path.isAbsolute(value))) {
-    throw new Error("The Git checkout and default-branch worktree must be inside the workspace directory.");
-  }
-
-  const name = await inputValue(ctx, "Workspace name", existingString(existing, "name") ?? path.basename(workspaceRoot));
-  if (name === undefined || !name) return undefined;
-  const worktreesDir = await inputValue(ctx, "Directory containing worktrees", existingString(existing, "worktrees_dir") ?? ".");
-  if (worktreesDir === undefined || !worktreesDir) return undefined;
-
   const values = {
-    name,
-    projectRoot: relativeProjectRoot || ".",
-    defaultBranch,
-    defaultBranchWorktree: relativeDefaultWorktree || ".",
-    worktreesDir,
+    name: manifestString(existing, "name") ?? path.basename(workspaceRoot),
+    project_root: path.relative(workspaceRoot, repository) || ".",
+    default_branch: branch,
+    default_branch_worktree: path.relative(workspaceRoot, defaultWorktree.path) || ".",
+    worktrees_dir: manifestString(existing, "worktrees_dir") ?? ".",
   };
-  const proposed = manifestText(values);
-  const parsed = parseWorkspaceConfig(proposed);
-  const confirmed = await ctx.ui.confirm(
-    existing ? "Replace workspace.toml with this version?" : "Create workspace.toml with this version?",
-    `${proposed}\nAGENTS.md will not be changed. No Git worktrees will be created, moved, or deleted.`,
-  );
-  if (!confirmed) return undefined;
+  const proposed = [
+    "schema_version = 2",
+    ...Object.entries(values).map(([key, value]) => `${key} = ${JSON.stringify(value)}`),
+    `worktree_name_template = ${JSON.stringify(WORKTREE_NAME_TEMPLATE)}`,
+    "",
+  ].join("\n");
+  const config = parseWorkspaceConfig(proposed);
+  const title = existing ? "Replace workspace.toml?" : "Create workspace.toml?";
+  if (!(await ctx.ui.confirm(title, `${proposed}\nAGENTS.md and Git worktrees will not be changed.`))) return;
 
-  const temporaryPath = path.join(workspaceRoot, `.${MANIFEST_NAME}.${randomUUID()}.tmp`);
+  const temporaryPath = path.join(workspaceRoot, `.workspace.toml.${randomUUID()}.tmp`);
   try {
     await writeFile(temporaryPath, proposed, { encoding: "utf8", flag: "wx" });
     await readWorkspaceConfig(temporaryPath);
@@ -245,90 +142,44 @@ async function initializeWorkspace(cwd: string, ctx: ExtensionCommandContext) {
     await rm(temporaryPath, { force: true }).catch(() => undefined);
     throw error;
   }
-
-  return { workspaceRoot, manifestPath, config: parsed } as const;
+  return { manifestPath, config };
 }
 
-async function validateWorkspace(cwd: string) {
-  return currentWorkspaceConfig(cwd);
-}
-
-async function runInit(_args: string, ctx: ExtensionCommandContext) {
+async function runInit(ctx: ExtensionCommandContext) {
   try {
     const result = await initializeWorkspace(ctx.cwd, ctx);
-    if (!result) {
-      ctx.ui.notify("Workspace initialization cancelled; workspace.toml was not written.", "info");
-      return;
-    }
-    ctx.ui.notify(
-      `Workspace configuration saved.\nManifest: ${result.manifestPath}\nDefault branch: ${result.config.default_branch}\nDefault-branch worktree: ${result.config.default_branch_worktree}\nAGENTS.md was not changed.`,
-      "info",
-    );
-  } catch (error) {
-    ctx.ui.notify(`Workspace initialization failed: ${String(error)}`, "error");
-  }
+    ctx.ui.notify(result
+      ? `Saved ${result.manifestPath}. Default branch: ${result.config.default_branch}. AGENTS.md was not changed.`
+      : "Cancelled; workspace.toml was not written.", "info");
+  } catch (error) { ctx.ui.notify(`Workspace initialization failed: ${String(error)}`, "error"); }
 }
 
 export default function (pi: ExtensionAPI) {
   let workspaceConfig: Awaited<ReturnType<typeof discoverWorkspaceConfig>>;
+  pi.on("session_start", async (_event, ctx) => { workspaceConfig = await discoverWorkspaceConfig(ctx.cwd); });
+  pi.on("before_agent_start", (event) => setWorkspacePromptSection(event.systemPromptOptions.sections, workspaceConfig));
 
-  pi.on("session_start", async (_event, ctx) => {
-    workspaceConfig = await discoverWorkspaceConfig(ctx.cwd);
-  });
-
-  pi.on("before_agent_start", (event) => {
-    setWorkspacePromptSection(event.systemPromptOptions.sections, workspaceConfig);
-  });
-
-  pi.registerCommand("workspace-init", {
-    description: "Create or update only workspace.toml after reviewing its proposed contents",
-    handler: runInit,
-  });
-
+  pi.registerCommand("workspace-init", { description: "Create or update workspace.toml", handler: async (_args, ctx) => runInit(ctx) });
   pi.registerCommand("workspace", {
-    description: "Validate workspace.toml or show workspace helper usage",
+    description: "Initialize or inspect a personal repository workspace",
     handler: async (args, ctx) => {
       const action = args.trim();
-      if (action === "init") {
-        await runInit(args, ctx);
-        return;
-      }
+      if (action === "init") { await runInit(ctx); return; }
       if (action === "validate") {
         try {
-          const workspace = await validateWorkspace(ctx.cwd);
-          ctx.ui.notify(
-            [
-              "Workspace manifest is valid.",
-              `Workspace: ${workspace.workspaceRoot}`,
-              `Project checkout: ${workspace.projectRoot}`,
-              `Default branch: ${workspace.config.default_branch}`,
-              `Default-branch worktree: ${workspace.defaultBranchWorktree}`,
-              `Worktrees directory: ${workspace.worktreesRoot}`,
-            ].join("\n"),
-            "info",
-          );
-        } catch (error) {
-          ctx.ui.notify(`Workspace configuration is invalid: ${String(error)}`, "error");
-        }
+          const workspace = await currentWorkspaceConfig(ctx.cwd);
+          ctx.ui.notify([
+            "Workspace manifest is valid.",
+            `Workspace: ${workspace.workspaceRoot}`,
+            `Project checkout: ${workspace.projectRoot}`,
+            `Default branch: ${workspace.config.default_branch}`,
+            `Default-branch worktree: ${workspace.defaultBranchWorktree}`,
+            `Worktrees directory: ${workspace.worktreesRoot}`,
+          ].join("\n"), "info");
+        } catch (error) { ctx.ui.notify(`Workspace configuration is invalid: ${String(error)}`, "error"); }
         return;
       }
-      if (!action || action === "help") {
-        ctx.ui.notify(
-          [
-            "Workspace helper is loaded.",
-            "",
-            "Available commands:",
-            "  /workspace-init     Create or update only workspace.toml",
-            "  /workspace init     Alias for /workspace-init",
-            "  /workspace validate Validate workspace.toml",
-            "",
-            "The initializer never creates or edits AGENTS.md and never changes Git worktrees.",
-          ].join("\n"),
-          "info",
-        );
-        return;
-      }
-      ctx.ui.notify(`Unknown workspace action: ${action}. Try /workspace help.`, "warning");
+      ctx.ui.notify("Commands: /workspace-init, /workspace init, /workspace validate", "info");
     },
   });
 }
