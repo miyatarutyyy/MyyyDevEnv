@@ -35,6 +35,10 @@ in
     };
     ".pi/agent/skills/yomiyasu".source = ../pi/agent/skills/yomiyasu;
     ".pi/agent/skills/sdd".source = ../pi/agent/skills/sdd;
+    ".pi/agent/skills/impeccable".source = ../pi/agent/skills/impeccable;
+    ".pi/agent/skills/shadcn".source = ../pi/agent/skills/shadcn;
+    ".pi/agent/skills/ui-skills-root".source = ../pi/agent/skills/ui-skills-root;
+    ".pi/agent/skills/ui-ux-pro-max".source = ../pi/agent/skills/ui-ux-pro-max;
     ".pi/agent/prompts".source = ../pi/agent/prompts;
     ".pi/agent/themes".source = ../pi/agent/themes;
   };
